@@ -1,4 +1,5 @@
 from ga import *
+import imp
 
 # * other than random initalize
 # * fancy crossover, only have n-splits at the moment
@@ -10,14 +11,13 @@ from ga import *
 population_size = 150
 
 # problem definition and loading, load data files here
-def load_data():
-	j1 = np.round((1000 - 10) * np.random.sample(200) + 10).astype(int)
-	j2 = np.round((300 - 100) * np.random.sample(100) + 100).astype(int)
-	jobs = np.concatenate([j1, j2])
-	num_machines = 20
-	return jobs, num_machines
+def load_data(filename):
+        f = open(filename)
+        data = imp.load_source('data', '', f)
+        f.close()
+        return data.jobs, data.num_machines
 
-jobs, num_machines = load_data()
+jobs, num_machines = load_data("makespan_1.dzn")  # need to change here for each problem
 
 # problem specific functions
 def gen_random_chromosome(num_jobs, num_machines):
