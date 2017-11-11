@@ -1,0 +1,4 @@
+baseline results:
+data set 1: 5511 (MiniZinc 1 hour limit)
+data set 2: 8021 (MiniZinc 1 hour limit)
+data set 3: 150 (provably optimal)
