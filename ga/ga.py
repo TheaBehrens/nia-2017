@@ -18,6 +18,15 @@ def select_roulette(chromosomes, n, fitness_func):
 def select_nbest(chromosomes, n, fitness_func):
 	return sorted(chromosomes, key=fitness_func)[-n:]
 
+def select_tournament(chromosomes, n, tournament_size, fitness_func):
+	winners = set()
+	while len(winners) < n:
+		participant_indices = np.random.choice(len(chromosomes), size=tournament_size, replace=False)
+		winner = max(participant_indices, key=lambda i: fitness_func(chromosomes[i]))
+		winners.add(winner)
+	result = np.take(chromosomes, list(winners), axis=0)
+	return result
+
 #recombine: chromosome, chromosome -> chromosome
 def recombine_crossover(a, b, num_splits):
 	split_indices = np.array(sorted(np.random.choice(np.arange(1, len(a)), size=num_splits, replace=False)))
