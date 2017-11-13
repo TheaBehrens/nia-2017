@@ -20,9 +20,10 @@ def select_nbest(chromosomes, n, fitness_func):
 
 def select_tournament(chromosomes, n, tournament_size, fitness_func):
 	winners = set()
+	fs_values = [fitness_func(c) for c in chromosomes]
 	while len(winners) < n:
 		participant_indices = np.random.choice(len(chromosomes), size=tournament_size, replace=False)
-		winner = max(participant_indices, key=lambda i: fitness_func(chromosomes[i]))
+		winner = max(participant_indices, key=lambda i: fs_values[i])
 		winners.add(winner)
 	result = np.take(chromosomes, list(winners), axis=0)
 	return result
@@ -79,10 +80,12 @@ def evolve(init_func, selection_func, crossover_func, mutation_func, replacement
 	while i < max_generations:
 		population = evolution_step(population, selection_func, crossover_func, mutation_func, replacement_func, fitness_func)
 		print_stats(population, fitness_func)
+		mean, max_f = print_stats(population, fitness_func)
+		print("step: {}, mean: {:.2f}, best: {:.2f}".format(i, mean, max_f))
 		i += 1
 
 def print_stats(population, fitness_func):
 	fs = [fitness_func(p) for p in population]
 	mean = np.mean(fs)
 	max_f = np.max(fs)
-	print("mean: {:.2f}, best: {:.2f}".format(mean, max_f))
+	return mean, max_f
