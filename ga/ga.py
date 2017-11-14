@@ -71,7 +71,7 @@ def evolution_step(population, selection_func, crossover_func, mutation_func, re
 	xs = selection_func(population, fitness_func=fitness_func)
 	xs = generate_offspring(xs, offspring_count, crossover_func)
 	xs = list(map(mutation_func, xs))
-	xs = replacement_func(xs, population, fitness_func=fitness_func)
+	xs = replacement_func(xs, population)
 	return xs
 
 def evolve(init_func, selection_func, crossover_func, mutation_func, replacement_func, fitness_func, max_generations=10000):		
@@ -80,12 +80,13 @@ def evolve(init_func, selection_func, crossover_func, mutation_func, replacement
 	while i < max_generations:
 		population = evolution_step(population, selection_func, crossover_func, mutation_func, replacement_func, fitness_func)
 		print_stats(population, fitness_func)
-		mean, max_f = print_stats(population, fitness_func)
-		print("step: {}, mean: {:.2f}, best: {:.2f}".format(i, mean, max_f))
+		# mean, max_f, fs = print_stats(population, fitness_func)
+		# print("step: {}, mean: {:.2f}, best: {:.2f}".format(i, mean, max_f))
 		i += 1
+	return population
 
-def print_stats(population, fitness_func):
-	fs = [fitness_func(p) for p in population]
-	mean = np.mean(fs)
-	max_f = np.max(fs)
-	return mean, max_f
+# def print_stats(population, fitness_func):
+# 	fs = [fitness_func(p) for p in population]
+# 	mean = np.mean(fs)
+# 	max_f = np.max(fs)
+# 	return mean, max_f, fs
