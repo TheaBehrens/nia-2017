@@ -19,7 +19,7 @@ F = 0.1
 a = 10
 b = 0.4
 c = 0.5*np.pi
-d = 1
+d = 2
 
 def fitness(p):
     ssq = np.sum(np.power(p,2))
