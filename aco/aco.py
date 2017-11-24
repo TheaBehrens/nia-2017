@@ -67,6 +67,7 @@ def generate_new_trails(num_ants, probabilities):
                 for next_node in range(len(probabilities[node])):
                     if random.random() < probabilities[node][next_node]:
                         trail[node] = next_node
+                        break
     return trails
 
 
