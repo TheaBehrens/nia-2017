@@ -1,23 +1,10 @@
 import csv
 import numpy as np
-import matplotlib.pyplot as plt
-import pickle
-import time
 
 # several functions have to know the distance and the pheromone of each path
 distances = None
 pheromone_mat = None
 
-# some parameters...
-INITIAL_PHEROMONE = 0.1
-ants = 20
-iterations = 101
-evaporation_rate = 0.4
-which_problem = 2
-Q = 100
-alpha=3
-beta=3
-savename = '24nov_' +str(ants)+ 'ants_' +str(iterations)+ 'iterations_' +str(evaporation_rate) +'roh_' +str(Q)+ 'q_' +str(alpha) + 'a_' +str(beta) + 'b' 
 
 # helper function to read in the problem from file
 def read_tsp(problem):
@@ -32,12 +19,12 @@ def read_tsp(problem):
 # initialize:
 # each arc has pheromone trail associated with it 
 # --> same value for all arcs in the beginning
-def initialize(problem_name):
+def initialize(problem_name, initial_pheromone):
     global distances, pheromone_mat
     dist = read_tsp(problem_name)
     distances = np.asarray(dist, dtype=int)
     # initializing all pheromone values to 0.1? good size? too high/low?
-    pheromone_mat = np.ones(distances.shape) * INITIAL_PHEROMONE
+    pheromone_mat = np.ones(distances.shape) * initial_pheromone
 
 
 # crawl / find tours
@@ -52,7 +39,6 @@ def solution_generation(nr_ants, alpha=1, beta=1):
     # let all ants start at different points:
     solutions[:,0] = np.random.choice(path_len, nr_ants, replace=False)
     # solutions[:,0] = np.random.multinomial(path_len, [1/nr_ants]*nr_ants) # TODO how is this supposed to work?!
-    print(solutions[:,0])
     # for each ant find a path through the graph
     for ant in range(nr_ants):
         not_visited = np.arange(path_len).tolist()
@@ -104,26 +90,4 @@ def pheromone_changes(solutions, evaporation_rate=0.01, Q=1):
         # add pheromone to all edges included in path
         add_pheromone(solutions[ant,:], cost, Q)
     return cost_mat
-
-# main stuff... can be in a loop later or in other file?
-initialize(which_problem)
-
-cost_in_iteration = np.zeros((iterations, 3))
-tic = time.clock()
-for i in range(iterations):
-    solutions = solution_generation(ants, alpha=alpha, beta=beta)
-    cost_mat = pheromone_changes(solutions, evaporation_rate=evaporation_rate, Q=Q)
-    cost_in_iteration[i,:] = [np.mean(cost_mat), np.max(cost_mat), np.min(cost_mat)]
-
-toc = time.clock()
-
-print(toc - tic)
-
-with open(savename+'.pickle', 'wb') as f:
-    pickle.dump(cost_in_iteration, f, pickle.HIGHEST_PROTOCOL)
-
-fig = plt.figure()
-plt.plot(cost_in_iteration[:,0])
-fig.show()
-fig.savefig(savename + '.pdf')
 
