@@ -133,6 +133,6 @@ def intensify_trails(cost_matrix, trails, Q, pheromones=False):
                 n2 = trail[0]
             else:
                 n2 = trail[i+1]
-            pheromones[int(n1)][int(n2)] += Q / cost_matrix[int(n1)][int(n2)]
+            pheromones[int(n1)][int(n2)] += Q / trail_cost(cost_matrix, trail)
 
     return pheromones
