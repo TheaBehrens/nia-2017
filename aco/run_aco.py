@@ -18,7 +18,7 @@ beta=5
 # baseline values (minizinc, Nico)
 baselines = {1 : [4190, 3632], 2 : [3553, 2878], 3 :[3372, 2617]}
 mzn_baseline = baselines[which_problem][0]
-aco_basline = baslines[which_problem][1]
+aco_basline = baselines[which_problem][1]
 
 savename = '24nov_' +str(ants)+ 'ants_' +str(iterations)+ 'iterations_' +str(evaporation_rate) +'roh_' +str(Q)+ 'q_' +str(alpha) + 'a_' +str(beta) + 'b' 
 
