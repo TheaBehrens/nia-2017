@@ -10,7 +10,7 @@ pheromone_mat = None
 # some parameters...
 INITIAL_PHEROMONE = 0.1
 ants = 10
-iterations = 100
+iterations = 500
 evaporation_rate = 0.4
 which_problem = 2
 Q = 100
@@ -109,12 +109,11 @@ for i in range(iterations):
     cost_mat = pheromone_changes(solutions, evaporation_rate=evaporation_rate, Q=Q)
     cost_in_iteration[i,:] = [np.mean(cost_mat), np.max(cost_mat), np.min(cost_mat)]
 
-plt.figure()
-plt.plot(cost_in_iteration[:,0])
-plt.show()
-plt.savefig(savename + '.pdf')
-
-
 with open(savename+'.pickle', 'wb') as f:
     pickle.dump(cost_in_iteration, f, pickle.HIGHEST_PROTOCOL)
+
+fig = plt.figure()
+plt.plot(cost_in_iteration[:,0])
+fig.show()
+fig.savefig(savename + '.pdf')
 
