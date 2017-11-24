@@ -63,7 +63,7 @@ def evaporate_trails(pheromones, rho):
     pheromones = np.multiply((1 - rho), pheromones)
     return pheromones
 
-
+  
 def intensify_trails(cost_matrix, trails, Q, pheromones=False):
     '''Update the trails based on pheromones deposited.  Q is a constant
     that determines how much pheromone is deposited on a path by an
@@ -82,9 +82,14 @@ def intensify_trails(cost_matrix, trails, Q, pheromones=False):
 
     # if an ant uses an edge, a scaled pheromone is added
     for trail in trails:
-        for i in range(0, num_nodes):
-            for j in range(0, num_nodes):
-                if i == j + 1 or (i == (len(trail) - 1) and j == 0):
-                    pheromones[trail[i], trail[j]] += Q / cost_matrix[i][j]
+        for i in range(len(trail)):
+            if i == len(trail) - 1:
+                n1 = trail[i]
+                n2 = trail[0]
+            else:
+                n1, n2 = trail[i:i+2]
+            pheromones[n1, n2] += Q / cost_matrix[n1, n2]
 
     return pheromones
+
+
