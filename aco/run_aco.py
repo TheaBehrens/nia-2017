@@ -16,7 +16,6 @@ alpha=3
 beta=5
 
 # baseline values (minizinc, Nico)
-baselines = {mzn : [4190, 3553, 3372], aco : [3632, 2878, 2617]}
 mzn_baseline = baselines['mzn'][which_problem]
 aco_baseline = baselines['aco'][which_problem]
 
