@@ -2,6 +2,7 @@ import csv
 import numpy as np
 import matplotlib.pyplot as plt
 import pickle
+import time
 
 # several functions have to know the distance and the pheromone of each path
 distances = None
@@ -9,12 +10,14 @@ pheromone_mat = None
 
 # some parameters...
 INITIAL_PHEROMONE = 0.1
-ants = 10
-iterations = 500
+ants = 20
+iterations = 101
 evaporation_rate = 0.4
 which_problem = 2
 Q = 100
-savename = '24nov_' +str(ants)+ 'ants_' +str(iterations)+ 'iterations_' +str(evaporation_rate) +'roh_' +str(Q)+ 'q'
+alpha=3
+beta=3
+savename = '24nov_' +str(ants)+ 'ants_' +str(iterations)+ 'iterations_' +str(evaporation_rate) +'roh_' +str(Q)+ 'q_' +str(alpha) + 'a_' +str(beta) + 'b' 
 
 # helper function to read in the problem from file
 def read_tsp(problem):
@@ -42,12 +45,14 @@ def initialize(problem_name):
 # --> using the pheromone and desirablility
 # probabilistic path construction: choose a path with probability of 
 # pheromone^(alpha) * desirability^(beta) / (sum over these for all outgoing edges)
-def solution_generation(nr_ants, alpha=1, beta=0):
+def solution_generation(nr_ants, alpha=1, beta=1):
     path_len = distances.shape[0]
     # solutions matrix
     solutions = np.zeros((nr_ants, path_len), dtype=int)
     # let all ants start at different points:
     solutions[:,0] = np.random.choice(path_len, nr_ants, replace=False)
+    # solutions[:,0] = np.random.multinomial(path_len, [1/nr_ants]*nr_ants) # TODO how is this supposed to work?!
+    print(solutions[:,0])
     # for each ant find a path through the graph
     for ant in range(nr_ants):
         not_visited = np.arange(path_len).tolist()
@@ -60,8 +65,8 @@ def solution_generation(nr_ants, alpha=1, beta=0):
 
 # of all remaining nodes, chose one based on the pheromone and the desirability
 def choose_edge(position, open_nodes, alpha, beta):
-    pheromone = pheromone_mat[position, open_nodes]
-    desirability = 1 / distances[position, open_nodes]
+    pheromone = np.power(pheromone_mat[position, open_nodes], alpha)
+    desirability = np.power(1 / distances[position, open_nodes], beta)
     denominator = np.sum(pheromone * desirability)
     probabilities = pheromone * desirability / denominator
     chosen = np.random.choice(open_nodes, p=probabilities)
@@ -104,10 +109,15 @@ def pheromone_changes(solutions, evaporation_rate=0.01, Q=1):
 initialize(which_problem)
 
 cost_in_iteration = np.zeros((iterations, 3))
+tic = time.clock()
 for i in range(iterations):
-    solutions = solution_generation(ants)
+    solutions = solution_generation(ants, alpha=alpha, beta=beta)
     cost_mat = pheromone_changes(solutions, evaporation_rate=evaporation_rate, Q=Q)
     cost_in_iteration[i,:] = [np.mean(cost_mat), np.max(cost_mat), np.min(cost_mat)]
+
+toc = time.clock()
+
+print(toc - tic)
 
 with open(savename+'.pickle', 'wb') as f:
     pickle.dump(cost_in_iteration, f, pickle.HIGHEST_PROTOCOL)
