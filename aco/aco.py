@@ -34,25 +34,38 @@ def generate_random_trails(num_ants, num_nodes):
 
     return np.array(trails)
 
+  
+def generate_new_trails(num_ants, probabilities):
 
-def generate_new_trails(num_ants, cost_matrix, current_trails,
-                        pheromones, alpha, beta):
-
-    '''Takes as inputs num_ants, current_trails, pheromones, and heuristic
-    parameters (alpha, beta). Generates a single trail for each ant.
-    Returns an array of trails.
+    '''Takes as inputs num_ants and transition probabilities. Returns new
+    trails based on these probabilities.
 
     '''
-    raise NotImplementedError
 
-    # TODO: make new trails based on probabilities based on pheromones
-    # and path costs
 
-    # for each ant, start at the origin then choose the next node
-    # based on the probability (pheromones and cost)
+def generate_transition_probabilities(cost_matrix, pheromones, alpha, beta):
+    '''Takes as input the cost_matrix, pheromones, alpha and beta and
+    determines transition probabilities.
 
-    # return np.array(trails)
+    '''
+    num_nodes = np.size(cost_matrix, 0)
+    probabilities = np.zeros((num_nodes, num_nodes))
 
+    for node1 in range(num_nodes):
+        # first generate un-normalized probabilities
+        for node2 in range(num_nodes):
+            if cost_matrix[node1][node2] != 0:
+                probabilities[node1][node2] = (pheromones[node1]
+                                               [node2]**alpha *
+                                               (1/cost_matrix[node1]
+                                                [node2])**beta)
+            # then normalize
+    normalized = np.zeros((num_nodes, num_nodes))
+    for node1 in range(num_nodes):
+        for node2 in range(num_nodes):
+            normalized[node1][node2] = np.divide(probabilities[node1][node2], np.sum(probabilities[i]))
+
+    return normalized
 
 def evaporate_trails(pheromones, rho):
     '''Scales down the pheromones based on rho parameter.
