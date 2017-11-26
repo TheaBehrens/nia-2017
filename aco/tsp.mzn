@@ -19,7 +19,6 @@ constraint circuit(route); % route[i] = j means j is the successor of i in the c
 % the cost for a leg can be looked up with the index in the route and the value at that index
 constraint forall(i in N)(cost_matrix[i, route[i]] = route_costs[i]);
 
-solve :: int_search(route_costs, max_regret, indomain_split, complete) minimize(total_cost);     
-%solve minimize(total_cost);
+solve :: int_search(route_costs, smallest, indomain_min, complete) minimize(total_cost);     
 
 output [show(total_cost)]         
