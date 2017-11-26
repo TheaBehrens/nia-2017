@@ -14,7 +14,7 @@ which_problem = 3
 Q = 100
 alpha=3
 beta=5
-savename = '24nov_' +str(ants)+ 'ants_' +str(iterations)+ 'iterations_' +str(evaporation_rate) +'roh_' +str(Q)+ 'q_' +str(alpha) + 'a_' +str(beta) + 'b' 
+savename = '24nov_' +str(ants)+ 'ants_' +str(iterations)+ 'iterations_' +str(evaporation_rate) +'roh_' +str(Q)+ 'q_' +str(alpha) + 'a_' +str(beta) + 'b'
 
 
 tic = time.clock()
@@ -38,4 +38,3 @@ fig = plt.figure()
 plt.plot(cost_in_iteration[:,0])
 fig.show()
 fig.savefig(savename + '.pdf')
-
