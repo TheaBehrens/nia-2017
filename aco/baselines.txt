@@ -1,5 +1,5 @@
 baselines based on MiniZinc model using Gecode solver. Limited to 1h using 8 threads of i7-2760QM CPU @ 2.40GHz
 
-tsp1: 4190
-tsp2: 3553
-tsp3: 3372
+tsp1: 3980
+tsp2: 3258
+tsp3: 2998
