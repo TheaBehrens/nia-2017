@@ -23,7 +23,7 @@ def initialize(problem_name, initial_pheromone):
     global distances, pheromone_mat
     dist = read_tsp(problem_name)
     distances = np.asarray(dist, dtype=int)
-    # initializing all pheromone values to 0.1? good size? too high/low?
+    # initializing all pheromone values to the specified value
     pheromone_mat = np.ones(distances.shape) * initial_pheromone
 
 
@@ -37,8 +37,10 @@ def solution_generation(nr_ants, alpha=1, beta=1):
     # solutions matrix
     solutions = np.zeros((nr_ants, path_len), dtype=int)
     # let all ants start at different points:
-    solutions[:,0] = np.random.choice(path_len, nr_ants, replace=False)
-    # solutions[:,0] = np.random.multinomial(path_len, [1/nr_ants]*nr_ants) # TODO how is this supposed to work?!
+    if(nr_ants==path_len):
+        solutions[:,0] = range(nr_ants)
+    else:
+        solutions[:,0] = np.random.choice(path_len, nr_ants, replace=False)
     # for each ant find a path through the graph
     for ant in range(nr_ants):
         not_visited = np.arange(path_len).tolist()
@@ -55,7 +57,7 @@ def choose_edge(position, open_nodes, alpha, beta):
     desirability = np.power(1 / distances[position, open_nodes], beta)
     denominator = np.sum(pheromone * desirability)
     probabilities = pheromone * desirability / denominator
-    chosen = np.random.choice(open_nodes, p=probabilities)
+    chosen = open_nodes[np.random.multinomial(1,probabilities).argmax()]
     return chosen
 
 # calculate the cost of a path by summing over all edges
@@ -74,7 +76,7 @@ def add_pheromone(path, cost, Q=1):
     for i in range(len(path)):
         pheromone_mat[path[i-1],path[i]] += additional_pheromone
 
-
+# evaporation and intensification
 def pheromone_changes(solutions, evaporation_rate=0.01, Q=1):
     # evaporation:
     global pheromone_mat
