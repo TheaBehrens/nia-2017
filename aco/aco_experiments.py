@@ -19,8 +19,10 @@ def evaluate_parameters(params):
         cost_mat = aco.pheromone_changes(solutions, evaporation_rate=params[0], Q=params[1])
         cost_in_iteration[i,:] = [np.mean(cost_mat), np.max(cost_mat), np.min(cost_mat)]
     toc = time.clock()
-    description = "alpha "+ str(params[2]) + " beta "+ str(params[3]) + " evaporation rate " + str(params[0]) + " Q " + str(params[1])
-    #print('it took so many seconds to compute: ', toc - tic)
+    #description = "alpha "+ str(params[2]) + " beta "+ str(params[3]) + " evaporation rate " + str(params[0]) + " Q " + str(params[1])
+    description = [params[2],params[3], params[0], params[1]]
+
+    print('it took so many seconds to compute: ', toc - tic)
     #print('best solution at last iteration: ', cost_in_iteration[-1,2])
     return cost_in_iteration, description
 
