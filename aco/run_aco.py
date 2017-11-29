@@ -2,13 +2,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pickle
 import time
-import aco_thea as aco
+import aco
 
 
 # some parameters...
 INITIAL_PHEROMONE = 0.1
 ants = 15
-iterations = 100
+iterations = 13
 evaporation_rate = 0.4
 which_problem = 3
 Q = 100
@@ -16,7 +16,7 @@ alpha=3
 beta=5
 
 
-# baseline values (minizinc, Nico)
+# baseline values (minizinc, assignment slides)
 baselines = {'mzn' : [3980, 3258, 2998], 'aco' : [3632, 2878, 2617]}
 mzn_baseline = baselines['mzn'][which_problem - 1]
 aco_baseline = baselines['aco'][which_problem - 1]

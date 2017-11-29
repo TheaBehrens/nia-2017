@@ -1,7 +1,7 @@
 import numpy as np
 import pickle
 import time
-import aco_thea as aco
+import aco
 import itertools, functools, operator
 from functools import partial
 import sys
