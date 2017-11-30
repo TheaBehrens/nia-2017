@@ -1,0 +1,6 @@
+main code: Jonas, Noa, Thea
+parameter research: Aiswarya
+trying parameter combinations: Aiswarya, Inga, Noa, Thea
+plotting: Inga
+slides: Aiswarya
+minizinc: Noa
