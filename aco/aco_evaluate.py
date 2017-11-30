@@ -12,6 +12,7 @@ aco_baseline = baselines['aco'][which_problem - 1]
 results = "results_tsp_"+str(which_problem)+"_ants_"+str(ants)+".pickle"
 data = pickle.load(open(results, "rb"))
 
+# plot experiments: varying beta, Q and evaporation_rate
 for i in range(5):
     fig, axes = plt.subplots(1, 3, sharey=True, sharex=True, figsize = (15,10))
 
@@ -33,7 +34,6 @@ for i in range(5):
         if np.max(stats_mat[:,2]) > overall_max:
             overall_max = np.max(stats_mat[:,2])
         mean_history = stats_mat[0]
-        #max_history = stats_mat[1]
         min_history = stats_mat[:,2]
         minimum, = axes[t].plot(min_history, label= 'Q = '+str(description[3]))
 
@@ -51,7 +51,7 @@ for i in range(5):
     fig.show()
     fig.savefig('results_problem_'+str(which_problem)+'_'+str(i)+'.png')
 
-# plot only for fixed evaporation rate und intensity
+# plot alpha 1 beta 1,5,10,15 only for fixed evaporation rate und intensity
 c = 0
 t=0
 fig, axes = plt.subplots(2, 2, sharey=True, sharex=True, figsize = (15,10))
@@ -89,12 +89,11 @@ plt.ylim(overall_min, 10000)
 axes.flatten()[-2].legend(loc='upper left', bbox_to_anchor=(-0.02, 1), ncol = 3)
 stats, description = data[i]
 
-#plt.locator_params(nbins=4)
 plt.suptitle('alpha '+ str(description[0])+', beta 1,5,10,15'+ ', evaporation rate 0.3, Q 1' ,size=16)
 fig.show()
-fig.savefig('results_problem_eva_fixed'+str(which_problem)+'.png')
+fig.savefig('results_problem_fixed'+str(which_problem)+'.png')
 
-# first plot
+# plot for alpha 1 and beta 0
 fig = plt.figure()
 stats, description = data[0]
 stats_mat = np.asarray(stats)
@@ -111,7 +110,6 @@ plt.ylim(2500, 30000)
 axes.flatten()[-2].legend(loc='upper left', bbox_to_anchor=(-0.02, 1), ncol = 3)
 stats, description = data[i]
 
-#plt.locator_params(nbins=4)
 plt.suptitle('alpha '+ str(1)+', beta '+ str(0)+ ', evaporation rate 0.3, Q 1' ,size=16)
 fig.show()
-fig.savefig('results_problem_eva_fixed_beta_1'+str(which_problem)+'.png')
+fig.savefig('results_problem_fixed_beta_0'+str(which_problem)+'.png')
