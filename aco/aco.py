@@ -78,7 +78,7 @@ def add_pheromone(path, cost, Q=1):
         pheromone_mat[path[i-1],path[i]] += additional_pheromone
 
 # evaporation and intensification
-def pheromone_changes(solutions, evaporation_rate=0.01, Q=1):
+def pheromone_changes(solutions, evaporation_rate=0.1, Q=1):
     # evaporation:
     global pheromone_mat
     pheromone_mat = (1-evaporation_rate) * pheromone_mat
