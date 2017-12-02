@@ -1,5 +1,6 @@
 main code: Jonas, Noa, Thea
 parameter research: Aiswarya
+evaluation of experiments: Inga
 trying parameter combinations: Aiswarya, Inga, Noa, Thea
 plotting: Inga
 slides: Aiswarya
