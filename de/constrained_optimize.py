@@ -15,7 +15,7 @@ def de_step(pop):
     new_pop = np.copy(pop)
     for i, x in enumerate(pop):
         u,v,w = pop[np.random.choice(len(pop), size=3, replace=False)]
-        while u is x or u is x or u is x:
+        while u is x or v is x or w is x:
             u,v,w = pop[np.random.choice(len(pop), size=3, replace=False)]
         r = np.random.randint(0, NUM_PARAMS)
         p = np.random.rand(NUM_PARAMS) < CR
@@ -31,14 +31,16 @@ population = np.random.rand(POPULATION_SIZE, NUM_PARAMS) * (MAX-MIN) + MIN
 tau = np.linspace(0, 20, 200)
 
 plt.ion() # interactive!
-fig, (ax1, ax2) = plt.subplots(2,1)
+fig, (ax1, ax2, ax3) = plt.subplots(3,1)
 color = 'gbcmy'
 cnt = 0
+ax3.set_xlim(0, NUM_ITERATIONS)
+ax3.set_ylim(-1,4)
 
 for i in range(NUM_ITERATIONS):
     population = de_step(population)
     # the best individual of the population:
-    best_fitness = 100
+    best_fitness = 100000
     best_individual = 0
     for _, x in enumerate(population):
         if(fit.fitness(x) < best_fitness):
@@ -46,12 +48,16 @@ for i in range(NUM_ITERATIONS):
             best_x = x
             
     if(i%5 == 0):
+        mean_fitness = 0
         print('%.2f , %.2f, value: %.2f' %(best_x[0], best_x[1], best_fitness))
         ax1.cla() # clear previous lines
-        for i, x in enumerate(population):
+        for _, x in enumerate(population):
             ax1.plot(tau, fit.func_h(x[0], x[1], tau), 'grey')
             ax2.scatter(x[0], x[1], c=color[cnt%4])
+            mean_fitness += fit.fitness(x)
         ax2.scatter(best_x[0], best_x[1], c='r')
+        ax3.plot(i, mean_fitness/len(population), 'b^')
+        ax3.plot(i, best_fitness, 'ro')
         cnt += 1
         ax1.plot(tau, fit.func_h(best_x[0], best_x[1], tau), 'r')
         ax1.fill_between(tau[tau<10], 1.04, 2, alpha=0.3)

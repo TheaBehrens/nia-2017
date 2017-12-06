@@ -7,15 +7,7 @@ def func_h(x0, x1, tau):
         print('tau has to be in [0,20] but is ', tau)
         return 0
     return 1 / (1 + x0 * tau + (x1 * tau) * (x1 * tau))
-'''
-tau = np.linspace(0, 20, 50)
-plt.figure()
-plt.plot(tau, func_h(-0.1, 0.14, tau), 'c')
-plt.axhline(y=1.04)
-plt.axhline(y=0.8)
-plt.axhline(y=0.4)
-plt.show()
-'''
+
 
 def fitness(vector):
     x0 = vector[0]
@@ -26,9 +18,6 @@ def fitness(vector):
     gam1 = gamma1(x0, x1, tau)
     gam2 = gamma2(x0, x1, tau)
     gam3 = gamma3(x0, x1, tau)
-    # print(sum(gam1[gam1>0]))
-    # print(sum(gam2[gam2>0]))
-    # print(sum(gam3[gam3>0]))
     value += sum(gam1[gam1>0]*gam1[gam1>0])
     value += sum(gam2[gam2>0]*gam2[gam2>0])
     value += sum(gam3[gam3>0]*gam3[gam3>0])
@@ -48,4 +37,3 @@ def gamma3(x0, x1, tau):
     t = tau[tau <= 5]
     return (0.8 - func_h(x0, x1, t))
 
-# fitness(-0.1, 0.14)    
