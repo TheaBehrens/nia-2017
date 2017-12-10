@@ -21,34 +21,36 @@ def objective_func(solution):
     produce = solution[0:3]  # e1, e2, e3
     sell = solution[3:6]     # s1, s2, s3
     price = solution[6:9]    # p1, p2, p3
-        # ensure validity:
- #   if (np.array(solution) < 0.0).any:
-  #      return -np.inf
+    # ensure validity:
+    if (np.array(solution) < 0.0).any():
+        return -np.inf
     revenue = 0
     prod_cost = 0
     purch_cost = 0
-    for plant_type, amt in enumerate(produce):
-        prod_cost += cost_func(plant_type, amt)
-    #    print(cost_func(plant_type, amt))
-    for mkt_type, amt in enumerate(sell):
-        revenue += (min(demand_func(mkt_type, price[mkt_type]), amt) *
+    for plant_type, amount in enumerate(produce):
+        prod_cost += cost_func(plant_type, amount)
+    for mkt_type, amount in enumerate(sell):
+        # revenue : soldQuantity * price
+        revenue += (min(demand_func(mkt_type, price[mkt_type]), amount) *
                     price[mkt_type])
+    # TODO: why here soldQuantity = sum(sell)
+    # and above min(demand_func(mkt_type, price[mkt_type]), amount) ?!
     purch_cost = max((sum(sell) - sum(produce)), 0) * COST_PRICE
     cost = prod_cost + purch_cost
     profit = revenue - cost
     return profit
 
 
-def cost_func(plant_type, amt):
+def cost_func(plant_type, amount):
     """Calculates the cost.
     """
-    if amt <= 0:
+    if amount <= 0:
         return 0
 
-    elif amt > PLANT_KWH[plant_type] * MAX_PLANTS[plant_type]:
+    elif amount > PLANT_KWH[plant_type] * MAX_PLANTS[plant_type]:
         return LARGE
 
-    return np.ceil(amt / PLANT_KWH[plant_type]) * PLANT_COSTS[plant_type]
+    return np.ceil(amount / PLANT_KWH[plant_type]) * PLANT_COSTS[plant_type]
 
 
 def demand_func(mkt_type, price):
@@ -67,13 +69,13 @@ def demand_func(mkt_type, price):
 
 
 def get_bounds():
-    bounds = np.array([[0, 500000000],  # e1
-                       [0, 500000000],  # e2
-                       [0, 500000000],  # e3
-                       [0, 500000000],  # s1
-                       [0, 500000000],  # s2
-                       [0, 500000000],  # s3
-                       [0, 500000000],  # p1
-                       [0, 500000000],  # p2
-                       [0, 500000000]])  # p3
+    bounds = np.array([[0, 10000000],  # e1
+                       [0, 10000000],  # e2
+                       [0, 10000000],  # e3
+                       [0, 10000000],  # s1
+                       [0, 10000000],  # s2
+                       [0, 10000000],  # s3
+                       [0, 0.5],  # p1
+                       [0, 0.5],  # p2
+                       [0, 0.5]])  # p3
     return bounds
