@@ -30,7 +30,16 @@ def de_step(pop):
         p[r] = True
         z = u + F*(v-w)
         y = np.where(p, z, x)
+        # some problem specific constraint:
+        # reasonable prices are in the range of 0-0.5
+        # if they leave that interval --> reinitialize!
         # in this case HIGHER values are better:
+        while ((y[6] > 0.5)):
+            y[6] = np.random.rand()
+        while ((y[7] > 0.5)):
+            y[7] = np.random.rand()
+        while ((y[8] > 0.5)):
+            y[8] = np.random.rand()
         if fit.objective_func(y) > fit.objective_func(x):
             new_pop[i] = y
     return new_pop
@@ -86,6 +95,8 @@ plt.show()
 
 # quite often the third plot shows prices in the hundreds, instead of something below 0
 # in these cases also the amount to be sold there is close to 0, but that does not seem like a clever strategy
+# --> added a constraint now, such that the prices have to be smaller than 0.5
+# --> leads to more reliable convergence to good solutions
 fig, axes = plt.subplots(3,1, sharex=True)
 axes[0].scatter(best_results[:100,6], best_results[:100,3], color='r')
 axes[0].scatter(best_results[100:300,6], best_results[100:300,3], color='y')
@@ -99,9 +110,5 @@ axes[2].scatter(best_results[:100,8], best_results[:100,5], color='r')
 axes[2].scatter(best_results[100:300,8], best_results[100:300,5], color='y')
 axes[2].scatter(best_results[300:,8], best_results[300:,5], color='g')
 
-axes[0].set_xscale('log')
-axes[0].set_yscale('log')
-axes[1].set_yscale('log')
-axes[2].set_yscale('log')
 plt.show()
 
