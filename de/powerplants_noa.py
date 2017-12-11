@@ -33,8 +33,6 @@ def objective_func(solution):
         # revenue : soldQuantity * price
         revenue += (min(demand_func(mkt_type, price[mkt_type]), amount) *
                     price[mkt_type])
-    # TODO: why here soldQuantity = sum(sell)
-    # and above min(demand_func(mkt_type, price[mkt_type]), amount) ?!
     purch_cost = max((sum(sell) - sum(produce)), 0) * COST_PRICE
     cost = prod_cost + purch_cost
     profit = revenue - cost
@@ -75,7 +73,7 @@ def get_bounds():
                        [0, 10000000],  # s1
                        [0, 10000000],  # s2
                        [0, 10000000],  # s3
-                       [0, 0.5],  # p1
-                       [0, 0.5],  # p2
-                       [0, 0.5]])  # p3
+                       [0, 0.7],  # p1
+                       [0, 0.7],  # p2
+                       [0, 0.7]])  # p3
     return bounds
