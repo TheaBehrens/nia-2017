@@ -18,15 +18,16 @@ def objective_func(solution):
     p2, p3) and determines the profit.
 
     """
-    produce = solution[0:3]  # e1, e2, e3
-    sell = solution[3:6]     # s1, s2, s3
-    price = solution[6:9]    # p1, p2, p3
+    produce, sell, price = np.split(solution, 3)
     # ensure validity:
-    if (np.array(solution) < 0.0).any():
-        return -np.inf
+    produce = np.maximum(produce, 0.0)
+    sell = np.maximum(sell, 0.0)
+    price = np.maximum(price, 0.0)
+
     revenue = 0
     prod_cost = 0
     purch_cost = 0
+
     for plant_type, amount in enumerate(produce):
         prod_cost += cost_func(plant_type, amount)
     for mkt_type, amount in enumerate(sell):
