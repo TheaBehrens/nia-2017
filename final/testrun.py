@@ -2,7 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pickle
 import time
-import capacitated_aco as aco
+#import capacitated_aco as aco
+import capacitated_aco_several_pheromones as aco
 
 
 # some parameters...
@@ -19,6 +20,7 @@ beta=5
 tic = time.clock()
 
 aco.initialize('problem1/', INITIAL_PHEROMONE)
+
 aco.do_iterations(20)
 # aco.collect_several_solutions()
 

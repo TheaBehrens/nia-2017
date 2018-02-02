@@ -3,16 +3,26 @@ import numpy as np
 
 # several functions have to know the distance and the pheromone of each path
 distances = None
-pheromone_mat = None
+phero_mats = None
 capacity = None
 demand = None
 t_cost = None
 
 # TODO ideas to add:
-# different pheromones for different vehicles
+# different pheromones for different vehicles: added, does not seem to improve solutions at the moment
 # is there any other way to learn good vehicle assignments? at the moment always only random
 # 
-# Did incorporate the demand vs left stock now: but that slows down and does not seem to improve results, so I commented it out again for now.
+# maybe could also enforce vehicle-diversity?
+# 4 different vehicle-types
+# in this case solution could be
+# 2x 1000
+# 4x 500
+# 7x 300
+# 20x 100
+# 1x 1000, 2x 500
+# ...
+#
+
 
 # helper function to read in the problem from file
 def read_file(filename):
@@ -28,7 +38,7 @@ def read_file(filename):
 # each arc has pheromone trail associated with it
 # --> same value for all arcs in the beginning
 def initialize(problem_path, initial_pheromone):
-    global distances, pheromone_mat, capacity, demand, t_cost
+    global distances, phero_mats, capacity, demand, t_cost
     dist = read_file(problem_path + 'distance.txt') 
     capacity = read_file(problem_path + 'capacity.txt')
     demand = read_file(problem_path + 'demand.txt')
@@ -41,11 +51,16 @@ def initialize(problem_path, initial_pheromone):
     demand = np.insert(demand, 0, 0)                     # (101,)
     distances = np.asarray(dist, dtype=int)              # (101,101)
     t_cost = np.asarray(t_cost, dtype=int).squeeze()     # (33,)
+    types = np.unique(capacity)
+    print(types)
     print(capacity)
-    print(t_cost)
     
     # initializing all pheromone values to the specified value
-    pheromone_mat = np.ones(distances.shape) * initial_pheromone
+    # assuming that the value changes in capacity and cost are at the same places
+    # (== we have several different vehicles, but for one capacity, the fuel cost is always the same)
+    # make as many pheromone matrices as we have different vehicles
+    phero_mats = np.ones((len(types), distances.shape[0], distances.shape[1])) * initial_pheromone
+    print(phero_mats.shape)
 
 
 # crawl / find tours
@@ -74,14 +89,11 @@ def solution_generation(start=None, alpha=1, beta=1, gamma=1):
     # in order to minimize shuffle calls, get a list of indices, 
     # in which order to deploy the vehicles
     indices = np.arange(len(t_cost))
-    np.random.shuffle(indices)
-# the following lines are of course very problem specific, would need to make it more general, to include all types of vehilces into the solution...
-# it does increase the probability of good solutions by quite a margin though
+# be sure to include the different types of vehicles... should be made more general, not so problem specific as it is at the moment...
     important_indices = np.array([0,-1, 20, -3])
     np.random.shuffle(important_indices)
     np.random.shuffle(indices)
     indices = np.concatenate([important_indices, indices])
-    
 
     # continue until all customers are served
     i = 0
@@ -89,9 +101,10 @@ def solution_generation(start=None, alpha=1, beta=1, gamma=1):
         # take the first vehicle and let it find serve customers until empty
         left_stock = capacity[indices[i]]
         route = [0] # start at depot
+        v_type = idx_2_type(indices[i])
         while(left_stock > 0):
              # the current position of the ant is written at the last position of route
-             next_customer = choose_customer(route[-1], open_demand, left_stock)
+             next_customer = choose_customer(route[-1], open_demand, left_stock, v_type)
              if first:
                  next_customer = start
                  first = False
@@ -109,24 +122,23 @@ def solution_generation(start=None, alpha=1, beta=1, gamma=1):
         solutions.append(route)
     return (solutions, indices)
 
+# to transform the index of a vehicle into the type
+def idx_2_type(idx):
+    types = np.unique(capacity)
+    for i in range(len(types)):
+        if capacity[idx] == types[i]:
+            return i
+    print('blöd gelaufen, das sollte eigentlich nicht passieren')
+    return 42
+
 # of all remaining nodes, chose one based on 
 #   - the pheromone,
 #   - the distance,
 #   - demand/stock
-def choose_customer(position, open_demand, stock):
+def choose_customer(position, open_demand, stock, v_type):
     interesting_idx = open_demand > 0
-    pheromone = pheromone_mat[position, interesting_idx]
+    pheromone = phero_mats[v_type, position, interesting_idx]
     closeness = 1 / distances[position, interesting_idx]
-    '''
-    # TODO: also incorporate the demand here
-    d = open_demand[interesting_idx]
-    d = d-stock # if something is zero:  BEST
-                # if it is negative: okay (we can satisfy the demand here, closer to zero: better)
-                # something positive: avoid, we can not serve as much as demanded
-    demand_fits = np.ones(d.shape)
-    demand_fits[d<0] = -d[d<0]
-    demand_fits[d==0] =  max(demand_fits) * 4 # 4 times the next best value
-    '''
     denominator = np.sum(pheromone * closeness)
     probabilities = pheromone * closeness / denominator
 
@@ -155,35 +167,32 @@ def path_cost(tours, vehicle_idx):
 # add pheromone to all edges contained in a path
 # amount of pheromone inversly proportional to the cost of that path
 # parameter Q >= 1  can increase amout of pheromone
-def add_pheromone(tours, cost, Q):
-    global pheromone_mat
+def add_pheromone(tours, cost, Q, v_idx):
+    global phero_mats
     additional_pheromone = Q/cost
-    # print(additional_pheromone)
+    # go through all tours
     for i in range(len(tours)):
+        v_type = idx_2_type(v_idx[i])
         # go through all nodes in the tour to calculate the lengh of it:
         for j in range(len(tours[i])):
             if j == 0:
                 # also adding pheromone on the way from last customer to depot
-                pheromone_mat[tours[i][-1],0] += additional_pheromone
+                phero_mats[v_type, tours[i][-1],0] += additional_pheromone
             else:
-                pheromone_mat[tours[i][j-1], tours[i][j]] += additional_pheromone
+                phero_mats[v_type, tours[i][j-1], tours[i][j]] += additional_pheromone
 
 # evaporation and intensification
 def pheromone_changes(tours, vehicle_idx, evaporation_rate=0.05, Q=1000):
     # evaporation:
-    global pheromone_mat
-    pheromone_mat = (1-evaporation_rate) * pheromone_mat
+    global phero_mats
+    phero_mats = (1-evaporation_rate) * phero_mats
 
     # intensification:
-    nr_ants = 1 # TODO: several ants?
-    cost_mat = np.zeros((nr_ants,))
-    for ant in range(nr_ants):
-        # calculate cost of path
-        cost = path_cost(tours, vehicle_idx)
-        cost_mat[ant] = cost
-        # add pheromone to all edges included in path
-        add_pheromone(tours, cost, Q)
-    return cost_mat
+    # calculate cost of path
+    cost = path_cost(tours, vehicle_idx)
+    # add pheromone to all edges included in path
+    add_pheromone(tours, cost, Q, vehicle_idx)
+    return cost
 
 
 # yeah, well
@@ -201,13 +210,13 @@ def collect_several_solutions():
         sol_list.append(solution_generation(i))
     for i in range(len(sol_list)):
         cost = pheromone_changes(sol_list[i][0], sol_list[i][1])
-        if (cost[0] < 90000):
-            print(cost[0])
+        if (cost < 99000):
+            print(cost)
         total_cost += cost
     # not sure how much fluktuation in the solutions there is based on first initialization or so
 # but solutions seem to be quite a lot better on average with this 'batch updating' instead of updating after every iteration
 # (107.000 instead of 110.000)
-    print(total_cost/len(sol_list))
+    print('average over 100 runs: ', total_cost/len(sol_list))
     
 # current best: 82328 with all start nodes, and demand_fit
 #    79113 with demand fit, without all start nodes
