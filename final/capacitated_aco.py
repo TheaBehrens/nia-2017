@@ -12,8 +12,7 @@ t_cost = None
 # different pheromones for different vehicles
 # is there any other way to learn good vehicle assignments? at the moment always only random
 # 
-# also incorporate the need of the customer vs the left stock in the car
-# --> prefering those that can be served completely, very best: if need equals stock!
+# Did incorporate the demand vs left stock now: but that slows down and does not seem to improve results, so I commented it out again for now.
 
 # helper function to read in the problem from file
 def read_file(filename):
@@ -109,7 +108,16 @@ def choose_customer(position, open_demand, stock):
     interesting_idx = open_demand > 0
     pheromone = pheromone_mat[position, interesting_idx]
     closeness = 1 / distances[position, interesting_idx]
+    '''
     # TODO: also incorporate the demand here
+    d = open_demand[interesting_idx]
+    d = d-stock # if something is zero:  BEST
+                # if it is negative: okay (we can satisfy the demand here, closer to zero: better)
+                # something positive: avoid, we can not serve as much as demanded
+    demand_fits = np.ones(d.shape)
+    demand_fits[d<0] = -d[d<0]
+    demand_fits[d==0] =  max(demand_fits) * 4 # 4 times the next best value
+    '''
     denominator = np.sum(pheromone * closeness)
     probabilities = pheromone * closeness / denominator
 
@@ -179,19 +187,23 @@ def collect_several_solutions():
     sol_list = []
     total_cost = 0
     for i in range(1,distances.shape[0]):
-        sol_list.append(solution_generation())
-#        sol_list.append(solution_generation(i))
-    #    cost = pheromone_changes(sol_list[i-1][0], sol_list[i-1][1])
-     #   total_cost += cost
+        # with an 'i' in the call solution_generation(i)
+        # --> force the system to consider all nodes as starting points
+        sol_list.append(solution_generation(i))
     for i in range(len(sol_list)):
         cost = pheromone_changes(sol_list[i][0], sol_list[i][1])
+        if (cost[0] < 90000):
+            print(cost[0])
         total_cost += cost
     # not sure how much fluktuation in the solutions there is based on first initialization or so
 # but solutions seem to be quite a lot better on average with this 'batch updating' instead of updating after every iteration
 # (107.000 instead of 110.000)
     print(total_cost/len(sol_list))
     
-
+# current best: 82328 with all start nodes, and demand_fit
+#    79113 with demand fit, without all start nodes
+#    78546 without demand fit, and without all start, also only 19 sec instead of 29
+#    78156 without demand fit, with all start
 
 def do_iterations(iter_nr):
     total_cost = 0

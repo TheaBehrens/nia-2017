@@ -19,7 +19,7 @@ beta=5
 tic = time.clock()
 
 aco.initialize('problem1/', INITIAL_PHEROMONE)
-aco.do_iterations(70)
+aco.do_iterations(20)
 # aco.collect_several_solutions()
 
 toc = time.clock()
