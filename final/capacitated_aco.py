@@ -8,6 +8,12 @@ capacity = None
 demand = None
 t_cost = None
 
+# TODO ideas to add:
+# different pheromones for different vehicles
+# is there any other way to learn good vehicle assignments? at the moment always only random
+# 
+# also incorporate the need of the customer vs the left stock in the car
+# --> prefering those that can be served completely, very best: if need equals stock!
 
 # helper function to read in the problem from file
 def read_file(filename):
