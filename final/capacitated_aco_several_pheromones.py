@@ -1,5 +1,6 @@
 import csv
 import numpy as np
+import matplotlib.pyplot as plt    
 
 # several functions have to know the distance and the pheromone of each path
 distances = None
@@ -11,8 +12,11 @@ t_cost = None
 # TODO ideas to add:
 # different pheromones for different vehicles: added, does not seem to improve solutions at the moment
 # is there any other way to learn good vehicle assignments? at the moment always only random
+# --> could try something like: of the 10 best solutions in the past: keep the vehicle types and use them in the next 100 trials (such that 10% are fix, rest is still random)
+# new best solution would lead to update in the list of 'good vehicle combos'
 # 
 # maybe could also enforce vehicle-diversity?
+# otherwise the random shuffeling will 'prefer' vehicles with small capacitiy, as they exist in greater numbers
 # 4 different vehicle-types
 # in this case solution could be
 # 2x 1000
@@ -89,10 +93,10 @@ def solution_generation(start=None, alpha=1, beta=1, gamma=1):
     # in order to minimize shuffle calls, get a list of indices, 
     # in which order to deploy the vehicles
     indices = np.arange(len(t_cost))
-# be sure to include the different types of vehicles... should be made more general, not so problem specific as it is at the moment...
+    np.random.shuffle(indices)
+    # be sure to include the different types of vehicles... should be made more general, not so problem specific as it is at the moment...
     important_indices = np.array([0,-1, 20, -3])
     np.random.shuffle(important_indices)
-    np.random.shuffle(indices)
     indices = np.concatenate([important_indices, indices])
 
     # continue until all customers are served
@@ -128,16 +132,15 @@ def idx_2_type(idx):
     for i in range(len(types)):
         if capacity[idx] == types[i]:
             return i
-    print('blöd gelaufen, das sollte eigentlich nicht passieren')
-    return 42
 
 # of all remaining nodes, chose one based on 
 #   - the pheromone,
 #   - the distance,
-#   - demand/stock
+#   - demand/stock --> took that part out again, because it only slowed down and did not improve the solution
 def choose_customer(position, open_demand, stock, v_type):
     interesting_idx = open_demand > 0
     pheromone = phero_mats[v_type, position, interesting_idx]
+    
     closeness = 1 / distances[position, interesting_idx]
     denominator = np.sum(pheromone * closeness)
     probabilities = pheromone * closeness / denominator
@@ -182,7 +185,7 @@ def add_pheromone(tours, cost, Q, v_idx):
                 phero_mats[v_type, tours[i][j-1], tours[i][j]] += additional_pheromone
 
 # evaporation and intensification
-def pheromone_changes(tours, vehicle_idx, evaporation_rate=0.05, Q=1000):
+def pheromone_changes(tours, vehicle_idx, evaporation_rate=0.01, Q=100):
     # evaporation:
     global phero_mats
     phero_mats = (1-evaporation_rate) * phero_mats
@@ -210,18 +213,20 @@ def collect_several_solutions():
         sol_list.append(solution_generation(i))
     for i in range(len(sol_list)):
         cost = pheromone_changes(sol_list[i][0], sol_list[i][1])
-        if (cost < 99000):
+        if (cost < 80000):
             print(cost)
         total_cost += cost
     # not sure how much fluktuation in the solutions there is based on first initialization or so
-# but solutions seem to be quite a lot better on average with this 'batch updating' instead of updating after every iteration
-# (107.000 instead of 110.000)
+    # but solutions seem to be quite a lot better on average with this 'batch updating' instead of updating after every iteration
     print('average over 100 runs: ', total_cost/len(sol_list))
     
+# just some values that were found in with different params:
 # current best: 82328 with all start nodes, and demand_fit
 #    79113 with demand fit, without all start nodes
 #    78546 without demand fit, and without all start, also only 19 sec instead of 29
 #    78156 without demand fit, with all start
+#    76484 without demand fit, without all start
+#    73896 without demand fit, with all start (long iterations 100)
 
 def do_iterations(iter_nr):
     total_cost = 0
@@ -234,11 +239,21 @@ def do_iterations(iter_nr):
         ##     total_cost = 0
         collect_several_solutions()
         '''
-        if i % 10 == 0:
-            print(cost_mat)
-        if i % 500 == 0:
-            # just to get some feeling for the values in the pheromone_mat
-            print(np.mean(pheromone_mat))
-            print(np.max(pheromone_mat))
-            print(np.min(pheromone_mat))
-            '''
+        if i % 5 == 0:
+                '''
+    # just to get some feeling for the values in the pheromone_mat
+    f, axarr = plt.subplots(2,3, sharex=True, sharey=True)
+    cnt = 0
+    axarr[0,0].imshow(phero_mats[0,:30,:30], interpolation='none', origin='bottom', cmap='jet')
+    axarr[0,1].imshow(phero_mats[1,:30,:30], interpolation='none', origin='bottom', cmap='jet')
+    axarr[1,0].imshow(phero_mats[2,:30,:30], interpolation='none', origin='bottom', cmap='jet')
+    axarr[1,1].imshow(phero_mats[3,:30,:30], interpolation='none', origin='bottom', cmap='jet')
+    axarr[0,2].imshow(distances[:30,:30], interpolation='none', origin='bottom', cmap='jet')
+    axarr[1,2].imshow(np.mean(phero_mats[:,:30,:30], axis=0), interpolation='none', origin='bottom', cmap='jet')
+    plt.show()
+    for j in range(4):
+        print(j)
+        print(np.mean(phero_mats[j,:,:]))
+        print(np.max(phero_mats[j,:,:]))
+        print(np.min(phero_mats[j,:,:]))
+

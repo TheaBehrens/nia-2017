@@ -7,7 +7,7 @@ import capacitated_aco_several_pheromones as aco
 
 
 # some parameters...
-INITIAL_PHEROMONE = 0.1
+INITIAL_PHEROMONE = 0.5
 ants = 15
 iterations = 13
 evaporation_rate = 0.4
