@@ -10,7 +10,6 @@ demand = None
 t_cost = None
 
 # TODO ideas to add:
-# different pheromones for different vehicles: added, does not seem to improve solutions at the moment
 # is there any other way to learn good vehicle assignments? at the moment always only random
 # --> could try something like: of the 10 best solutions in the past: keep the vehicle types and use them in the next 100 trials (such that 10% are fix, rest is still random)
 # new best solution would lead to update in the list of 'good vehicle combos'
@@ -26,6 +25,9 @@ t_cost = None
 # 1x 1000, 2x 500
 # ...
 #
+# 
+# The routes don't include the way back to the depot.
+# But in the cost calculation that way is added!
 
 
 # helper function to read in the problem from file
@@ -71,12 +73,15 @@ def initialize(problem_path, initial_pheromone):
 # each ant: find solution (crawl along a path)
 # --> using the pheromone and desirablility AND DEMAND AND CAPACITY
 # probabilistic path construction: choose a path with probability of
-# pheromone^(alpha) * desirability^(beta) * demand_fit^(gamma) / 
+# pheromone * desirability * demand_fit / 
 #               (sum over these for all outgoing edges)
+# Not using alpha, beta and gamma at the moment to weight the different components
+# just take them all to equal parts
 def solution_generation(start=None, alpha=1, beta=1, gamma=1):
-    first = False
+    # first_given: option to give a start-node as argument ('start')
+    first_given = False
     if (start):
-        first = True
+        first_given = True
     open_demand = np.copy(demand)
     # open_demand = open_demand[:10]
     
@@ -94,7 +99,8 @@ def solution_generation(start=None, alpha=1, beta=1, gamma=1):
     # in which order to deploy the vehicles
     indices = np.arange(len(t_cost))
     np.random.shuffle(indices)
-    # be sure to include the different types of vehicles... should be made more general, not so problem specific as it is at the moment...
+    # be sure to include the different types of vehicles... 
+    # should be made more general, not so problem specific as it is at the moment...
     important_indices = np.array([0,-1, 20, -3])
     np.random.shuffle(important_indices)
     indices = np.concatenate([important_indices, indices])
@@ -102,30 +108,35 @@ def solution_generation(start=None, alpha=1, beta=1, gamma=1):
     # continue until all customers are served
     i = 0
     while(sum(open_demand) != 0):
-        # take the first vehicle and let it find serve customers until empty
+        # take the first vehicle and let it serve customers until empty
         left_stock = capacity[indices[i]]
         route = [0] # start at depot
         v_type = idx_2_type(indices[i])
         while(left_stock > 0):
-             # the current position of the ant is written at the last position of route
-             next_customer = choose_customer(route[-1], open_demand, left_stock, v_type)
-             if first:
-                 next_customer = start
-                 first = False
-             if(open_demand[next_customer] <= left_stock):
-                 left_stock -= open_demand[next_customer]
-                 open_demand[next_customer] = 0
-             else:
-                 open_demand[next_customer] -= left_stock
-                 left_stock = 0
-             route.append(next_customer) 
-             if(sum(open_demand)==0):
-                 break
+            # the current position of the ant is written at the last position of route
+            next_customer = choose_customer(route[-1], open_demand, left_stock, v_type)
+            # if the first position was given as an argument, 
+            # overwrite the customer found with the given one
+            if first_given:
+                next_customer = start
+                first_given = False
+            # decrease the left stock and the demand of the served customer
+            if(open_demand[next_customer] <= left_stock):
+                left_stock -= open_demand[next_customer]
+                open_demand[next_customer] = 0
+            else:
+                open_demand[next_customer] -= left_stock
+                left_stock = 0
+            route.append(next_customer) 
+            if(sum(open_demand)==0):
+                # all customers are served, no need to search further
+                break
         # this ant finished, let the next take over
         i += 1
         solutions.append(route)
     return (solutions, indices)
 
+# helper function
 # to transform the index of a vehicle into the type
 def idx_2_type(idx):
     types = np.unique(capacity)
@@ -158,11 +169,8 @@ def path_cost(tours, vehicle_idx):
         tour_length = 0
         # go through all nodes in the tour to calculate the lengh of it:
         for j in range(len(tours[i])):
-            if j == 0:
-                # also adding the way back from last customer to depot
-                tour_length += distances[tours[i][-1],0]
-            else:
-                tour_length += distances[tours[i][j-1], tours[i][j]]
+            # when j==0: adds way (last_node -- depot)
+            tour_length += distances[tours[i][j-1], tours[i][j]]
 
         cost += fuel_consumption * tour_length
     return(cost)
@@ -176,13 +184,9 @@ def add_pheromone(tours, cost, Q, v_idx):
     # go through all tours
     for i in range(len(tours)):
         v_type = idx_2_type(v_idx[i])
-        # go through all nodes in the tour to calculate the lengh of it:
+        # go through all nodes in the tour and edd pheromone to the edges on the way
         for j in range(len(tours[i])):
-            if j == 0:
-                # also adding pheromone on the way from last customer to depot
-                phero_mats[v_type, tours[i][-1],0] += additional_pheromone
-            else:
-                phero_mats[v_type, tours[i][j-1], tours[i][j]] += additional_pheromone
+            phero_mats[v_type, tours[i][j-1], tours[i][j]] += additional_pheromone
 
 # evaporation and intensification
 def pheromone_changes(tours, vehicle_idx, evaporation_rate=0.01, Q=100):
@@ -213,7 +217,7 @@ def collect_several_solutions():
         sol_list.append(solution_generation(i))
     for i in range(len(sol_list)):
         cost = pheromone_changes(sol_list[i][0], sol_list[i][1])
-        if (cost < 80000):
+        if (cost < 90000):
             print(cost)
         total_cost += cost
     # not sure how much fluktuation in the solutions there is based on first initialization or so
@@ -231,16 +235,8 @@ def collect_several_solutions():
 def do_iterations(iter_nr):
     total_cost = 0
     for i in range(iter_nr):
-        ## (tours, idx) = solution_generation()
-        ## cost = pheromone_changes(tours, idx)
-        ## total_cost += cost
-        ## if i % 100 == 0:
-        ##     print(total_cost/100)
-        ##     total_cost = 0
         collect_several_solutions()
-        '''
-        if i % 5 == 0:
-                '''
+    '''
     # just to get some feeling for the values in the pheromone_mat
     f, axarr = plt.subplots(2,3, sharex=True, sharey=True)
     cnt = 0
@@ -256,4 +252,4 @@ def do_iterations(iter_nr):
         print(np.mean(phero_mats[j,:,:]))
         print(np.max(phero_mats[j,:,:]))
         print(np.min(phero_mats[j,:,:]))
-
+'''
