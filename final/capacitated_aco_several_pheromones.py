@@ -92,7 +92,7 @@ def solution_generation(visit_first=None, vehicles=None, alpha=1, beta=1, gamma=
 
     # in order to minimize shuffle calls, get a list of indices, 
     # in which order to deploy the vehicles
-    if(vehicles==None):
+    if(vehicles is None):
         vehicles = np.arange(len(t_cost))
         np.random.shuffle(vehicles)
         # be sure to include the different types of vehicles... 
