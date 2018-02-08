@@ -21,7 +21,7 @@ tic = time.clock()
 
 aco.initialize('problem1/', INITIAL_PHEROMONE)
 
-aco.do_iterations(20)
+aco.do_iterations(30)
 # aco.collect_several_solutions()
 
 toc = time.clock()

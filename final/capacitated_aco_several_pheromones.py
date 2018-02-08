@@ -58,8 +58,6 @@ def initialize(problem_path, initial_pheromone):
     distances = np.asarray(dist, dtype=int)              # (101,101)
     t_cost = np.asarray(t_cost, dtype=int).squeeze()     # (33,)
     types = np.unique(capacity)
-    print(types)
-    print(capacity)
     
     # initializing all pheromone values to the specified value
     # assuming that the value changes in capacity and cost are at the same places
@@ -77,11 +75,8 @@ def initialize(problem_path, initial_pheromone):
 #               (sum over these for all outgoing edges)
 # Not using alpha, beta and gamma at the moment to weight the different components
 # just take them all to equal parts
-def solution_generation(start=None, alpha=1, beta=1, gamma=1):
-    # first_given: option to give a start-node as argument ('start')
-    first_given = False
-    if (start):
-        first_given = True
+def solution_generation(visit_first=None, vehicles=None, alpha=1, beta=1, gamma=1):
+
     open_demand = np.copy(demand)
     # open_demand = open_demand[:10]
     
@@ -97,29 +92,30 @@ def solution_generation(start=None, alpha=1, beta=1, gamma=1):
 
     # in order to minimize shuffle calls, get a list of indices, 
     # in which order to deploy the vehicles
-    indices = np.arange(len(t_cost))
-    np.random.shuffle(indices)
-    # be sure to include the different types of vehicles... 
-    # should be made more general, not so problem specific as it is at the moment...
-    important_indices = np.array([0,-1, 20, -3])
-    np.random.shuffle(important_indices)
-    indices = np.concatenate([important_indices, indices])
+    if(vehicles==None):
+        vehicles = np.arange(len(t_cost))
+        np.random.shuffle(vehicles)
+        # be sure to include the different types of vehicles... 
+        # should be made more general, not so problem specific as it is at the moment...
+        # important_vehicles = np.array([0,-1, 20, -3])
+        # np.random.shuffle(important_vehicles)
+        # vehicles = np.concatenate([important_vehicles, vehicles])
 
     # continue until all customers are served
     i = 0
     while(sum(open_demand) != 0):
         # take the first vehicle and let it serve customers until empty
-        left_stock = capacity[indices[i]]
+        left_stock = capacity[vehicles[i]]
         route = [0] # start at depot
-        v_type = idx_2_type(indices[i])
+        v_type = idx_2_type(vehicles[i])
         while(left_stock > 0):
             # the current position of the ant is written at the last position of route
             next_customer = choose_customer(route[-1], open_demand, left_stock, v_type)
-            # if the first position was given as an argument, 
+            # if the first customer to visit was given as an argument, 
             # overwrite the customer found with the given one
-            if first_given:
-                next_customer = start
-                first_given = False
+            if visit_first:
+                next_customer = visit_first
+                visit_first = False
             # decrease the left stock and the demand of the served customer
             if(open_demand[next_customer] <= left_stock):
                 left_stock -= open_demand[next_customer]
@@ -134,7 +130,7 @@ def solution_generation(start=None, alpha=1, beta=1, gamma=1):
         # this ant finished, let the next take over
         i += 1
         solutions.append(route)
-    return (solutions, indices)
+    return (solutions, vehicles)
 
 # helper function
 # to transform the index of a vehicle into the type
@@ -205,7 +201,7 @@ def pheromone_changes(tours, vehicle_idx, evaporation_rate=0.01, Q=100):
 # yeah, well
 # you enforce diversity with this, but that does also enforce to start with bad nodes in quite a few cases, so solutions overall are worse
 # maybe the MIN is better? 
-def collect_several_solutions():
+def collect_several_solutions(vehicle_idx=None):
     # maybe don't update results directly, but let solution paths start at each of the cities/customers
     # --> would avoid bias towards taking the nearby cities always first
     # also there are several pheromone trails, and not only one is updated...
@@ -214,17 +210,33 @@ def collect_several_solutions():
     for i in range(1,distances.shape[0]):
         # with an 'i' in the call solution_generation(i)
         # --> force the system to consider all nodes as starting points
-        sol_list.append(solution_generation(i))
+        if(vehicle_idx and i<len(vehicle_idx)):
+            sol_list.append(solution_generation(visit_first=i, vehicles=vehicle_idx[i]))
+        else:
+            sol_list.append(solution_generation(i))
+    cost_arr = np.zeros((len(sol_list,)))
     for i in range(len(sol_list)):
         cost = pheromone_changes(sol_list[i][0], sol_list[i][1])
-        if (cost < 90000):
-            print(cost)
-        total_cost += cost
+        cost_arr[i] = cost
     # not sure how much fluktuation in the solutions there is based on first initialization or so
     # but solutions seem to be quite a lot better on average with this 'batch updating' instead of updating after every iteration
-    print('average over 100 runs: ', total_cost/len(sol_list))
+    print('average and min over 100 runs: ', np.mean(cost_arr), np.min(cost_arr))
+    idx_good_solutions = np.argsort(cost_arr)
+    collect_vehicle_assignments = []
     
-# just some values that were found in with different params:
+    for i in range(15):
+        collect_vehicle_assignments.append(sol_list[idx_good_solutions[i]][1])
+        for_print = []
+        for j in range(19):
+            for_print.append(idx_2_type(collect_vehicle_assignments[i][j]))
+#        print(for_print)
+#    print(collect_vehicle_assignments[0][:10])
+    return collect_vehicle_assignments
+  
+
+
+
+# just some good values that were found in with different params:
 # current best: 82328 with all start nodes, and demand_fit
 #    79113 with demand fit, without all start nodes
 #    78546 without demand fit, and without all start, also only 19 sec instead of 29
@@ -234,8 +246,9 @@ def collect_several_solutions():
 
 def do_iterations(iter_nr):
     total_cost = 0
+    vehicle_assignments = None
     for i in range(iter_nr):
-        collect_several_solutions()
+        vehicle_assignments = collect_several_solutions(vehicle_assignments)
     '''
     # just to get some feeling for the values in the pheromone_mat
     f, axarr = plt.subplots(2,3, sharex=True, sharey=True)
