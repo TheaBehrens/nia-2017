@@ -10,9 +10,7 @@ demand = None
 t_cost = None
 
 # TODO ideas to add:
-# is there any other way to learn good vehicle assignments? at the moment always only random
-# --> could try something like: of the 10 best solutions in the past: keep the vehicle types and use them in the next 100 trials (such that 10% are fix, rest is still random)
-# new best solution would lead to update in the list of 'good vehicle combos'
+# is there any other way to learn good vehicle assignments? 
 # 
 # maybe could also enforce vehicle-diversity?
 # otherwise the random shuffeling will 'prefer' vehicles with small capacitiy, as they exist in greater numbers
@@ -24,11 +22,7 @@ t_cost = None
 # 20x 100
 # 1x 1000, 2x 500
 # ...
-#
 # 
-# The routes don't include the way back to the depot.
-# But in the cost calculation that way is added!
-
 
 # helper function to read in the problem from file
 def read_file(filename):
@@ -64,7 +58,6 @@ def initialize(problem_path, initial_pheromone):
     # (== we have several different vehicles, but for one capacity, the fuel cost is always the same)
     # make as many pheromone matrices as we have different vehicles
     phero_mats = np.ones((len(types), distances.shape[0], distances.shape[1])) * initial_pheromone
-    print(phero_mats.shape)
 
 
 # crawl / find tours
@@ -184,6 +177,7 @@ def add_pheromone(tours, cost, Q, v_idx):
         for j in range(len(tours[i])):
             phero_mats[v_type, tours[i][j-1], tours[i][j]] += additional_pheromone
 
+
 # evaporation and intensification
 def pheromone_changes(tours, vehicle_idx, evaporation_rate=0.01, Q=100):
     # evaporation:
@@ -198,71 +192,102 @@ def pheromone_changes(tours, vehicle_idx, evaporation_rate=0.01, Q=100):
     return cost
 
 
-# yeah, well
-# you enforce diversity with this, but that does also enforce to start with bad nodes in quite a few cases, so solutions overall are worse
-# maybe the MIN is better? 
-def collect_several_solutions(vehicle_idx=None):
-    # maybe don't update results directly, but let solution paths start at each of the cities/customers
-    # --> would avoid bias towards taking the nearby cities always first
-    # also there are several pheromone trails, and not only one is updated...
+def collect_several_solutions(vehicle_idx=None, batch_size=100, keep_v=0, enforce_diverse_start=False):
     sol_list = []
-    total_cost = 0
-    for i in range(1,distances.shape[0]):
-        # with an 'i' in the call solution_generation(i)
-        # --> force the system to consider all nodes as starting points
+    if enforce_diverse_start:
+        # have a shuffeled list of indices of all customers
+        # take the first ones in this list
+        customers = np.arange(len(demand))
+        np.random.shuffle(customers)
+    for i in range(1, batch_size+1):
         if(vehicle_idx and i<len(vehicle_idx)):
-            sol_list.append(solution_generation(visit_first=i, vehicles=vehicle_idx[i]))
-        else:
-            sol_list.append(solution_generation(i))
+            if(enforce_diverse_start):
+                sol_list.append(solution_generation(visit_first=customers[i], vehicles=vehicle_idx[i]))
+            else:
+                sol_list.append(solution_generation(vehicles=vehicle_idx[i]))
+        else: # not specifying the order of vehicles to use
+            if(enforce_diverse_start):
+                sol_list.append(solution_generation(visit_first=customers[i]))
+            else:
+                sol_list.append(solution_generation())
     cost_arr = np.zeros((len(sol_list,)))
     for i in range(len(sol_list)):
         cost = pheromone_changes(sol_list[i][0], sol_list[i][1])
         cost_arr[i] = cost
-    # not sure how much fluktuation in the solutions there is based on first initialization or so
-    # but solutions seem to be quite a lot better on average with this 'batch updating' instead of updating after every iteration
-    print('average and min over 100 runs: ', np.mean(cost_arr), np.min(cost_arr))
+    # print('average and min over 100 runs: ', np.mean(cost_arr), np.min(cost_arr))
+    print(min(cost_arr))
     idx_good_solutions = np.argsort(cost_arr)
     collect_vehicle_assignments = []
     
-    for i in range(15):
+    # find the keep_v best vehicle assignments and return them, 
+    # so that they can be reused in the next iteration
+    for i in range(keep_v):
+        # print(idx_good_solutions[i])
         collect_vehicle_assignments.append(sol_list[idx_good_solutions[i]][1])
+    '''
+        # to see which vehicles were used (gives a lot of print output)
         for_print = []
         for j in range(19):
             for_print.append(idx_2_type(collect_vehicle_assignments[i][j]))
-#        print(for_print)
-#    print(collect_vehicle_assignments[0][:10])
-    return collect_vehicle_assignments
+        print(for_print)
+    print(collect_vehicle_assignments[0][:10])
+    '''
+    return collect_vehicle_assignments, np.mean(cost_arr), np.min(cost_arr)
   
 
-
-
-# just some good values that were found in with different params:
-# current best: 82328 with all start nodes, and demand_fit
-#    79113 with demand fit, without all start nodes
-#    78546 without demand fit, and without all start, also only 19 sec instead of 29
-#    78156 without demand fit, with all start
-#    76484 without demand fit, without all start
-#    73896 without demand fit, with all start (long iterations 100)
-
-def do_iterations(iter_nr):
-    total_cost = 0
-    vehicle_assignments = None
-    for i in range(iter_nr):
-        vehicle_assignments = collect_several_solutions(vehicle_assignments)
+def do_iterations(iterations, batch_size=100, keep_v=0, enforce_diverse_start=0):
+    if (batch_size > len(demand)):
+        batch_size = len(demand) - 1
+        print('reduced the batch size to', batch_size, ', the number of customers in this problem')
+    if (keep_v > batch_size):
+        keep_v = int(np.floor(0.5 * batch_size))
+        print('reduced the number of vehicles to keep to', keep_v, ' half the batch size')
+    enforce_until = 0
+    if (enforce_diverse_start > 0):
+        if (enforce_diverse_start > 1):
+            print('ignoring this enforce_diverse_start value, expect something between 0 and 1')
+        else:
+            enforce_until = int(np.floor(enforce_diverse_start * iterations))
+            print('enforce a diverse start until', enforce_until)
+    value_history = np.zeros((iterations, 2))
+    v_assign = None
+    for i in range(iterations):
+        if (i > enforce_until):
+            enforce_diverse_start = False
+        v_assign, meanV, minV = collect_several_solutions(v_assign, batch_size, keep_v, enforce_diverse_start)
+        value_history[i, 0] = meanV
+        value_history[i, 1] = minV
+    plt.figure()
+    plt.suptitle('Mean and min of the batches')
+    x = np.linspace(0, iterations*batch_size, num=iterations)
+    plt.plot(x, value_history[:,0])
+    plt.plot(x, value_history[:,1])
+    plt.axvline(enforce_until*batch_size)
+    plt.xlabel('single runs')
+    plt.ylabel('cost')
+    plt.show()
     '''
     # just to get some feeling for the values in the pheromone_mat
     f, axarr = plt.subplots(2,3, sharex=True, sharey=True)
+    plt.suptitle('part of the pheromone matrices')
     cnt = 0
     axarr[0,0].imshow(phero_mats[0,:30,:30], interpolation='none', origin='bottom', cmap='jet')
+    axarr[0,0].set_title('first vehicle')
     axarr[0,1].imshow(phero_mats[1,:30,:30], interpolation='none', origin='bottom', cmap='jet')
+    axarr[0,1].set_title('second vehicle')
     axarr[1,0].imshow(phero_mats[2,:30,:30], interpolation='none', origin='bottom', cmap='jet')
+    axarr[1,0].set_title('third vehicle')
     axarr[1,1].imshow(phero_mats[3,:30,:30], interpolation='none', origin='bottom', cmap='jet')
+    axarr[1,1].set_title('fourth vehicle')
     axarr[0,2].imshow(distances[:30,:30], interpolation='none', origin='bottom', cmap='jet')
+    axarr[0,2].set_title('distances')
     axarr[1,2].imshow(np.mean(phero_mats[:,:30,:30], axis=0), interpolation='none', origin='bottom', cmap='jet')
+    axarr[1,2].set_title('mean all vehicles')
     plt.show()
+    print('The values (mean, max, min) of the pheromone matrices are:')
     for j in range(4):
-        print(j)
+        print('matrix ', j)
         print(np.mean(phero_mats[j,:,:]))
         print(np.max(phero_mats[j,:,:]))
         print(np.min(phero_mats[j,:,:]))
-'''
+     '''
