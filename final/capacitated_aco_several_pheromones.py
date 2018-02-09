@@ -1,6 +1,9 @@
 import csv
 import numpy as np
-import matplotlib.pyplot as plt    
+import matplotlib
+matplotlib.use("TkAgg")
+import matplotlib.pyplot as plt   
+import helpers
 
 # several functions have to know the distance and the pheromone of each path
 distances = None
@@ -142,10 +145,10 @@ def choose_customer(position, open_demand, stock, v_type):
     pheromone = phero_mats[v_type, position, interesting_idx]
     
     closeness = 1 / distances[position, interesting_idx]
-    denominator = np.sum(pheromone * closeness)
-    probabilities = pheromone * closeness / denominator
+   
+    weights = pheromone * closeness
+    chosen = helpers.pick_weighted_index(weights)
 
-    chosen = np.random.multinomial(1, probabilities).argmax()
     true_idx = np.where(open_demand > 0)[0][chosen]
     return true_idx
 
@@ -257,15 +260,16 @@ def do_iterations(iterations, batch_size=100, keep_v=0, enforce_diverse_start=0)
         v_assign, meanV, minV = collect_several_solutions(v_assign, batch_size, keep_v, enforce_diverse_start)
         value_history[i, 0] = meanV
         value_history[i, 1] = minV
-    plt.figure()
-    plt.suptitle('Mean and min of the batches')
-    x = np.linspace(0, iterations*batch_size, num=iterations)
-    plt.plot(x, value_history[:,0])
-    plt.plot(x, value_history[:,1])
-    plt.axvline(enforce_until*batch_size)
-    plt.xlabel('single runs')
-    plt.ylabel('cost')
-    plt.show()
+
+    # plt.figure()
+    # plt.suptitle('Mean and min of the batches')
+    # x = np.linspace(0, iterations*batch_size, num=iterations)
+    # plt.plot(x, value_history[:,0])
+    # plt.plot(x, value_history[:,1])
+    # plt.axvline(enforce_until*batch_size)
+    # plt.xlabel('single runs')
+    # plt.ylabel('cost')
+    # plt.show()
     '''
     # just to get some feeling for the values in the pheromone_mat
     f, axarr = plt.subplots(2,3, sharex=True, sharey=True)
