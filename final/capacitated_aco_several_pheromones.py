@@ -1,9 +1,6 @@
 import csv
 import numpy as np
-import matplotlib
-matplotlib.use("TkAgg")
-import matplotlib.pyplot as plt   
-import helpers
+import matplotlib.pyplot as plt 
 
 # several functions have to know the distance and the pheromone of each path
 distances = None
