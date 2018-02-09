@@ -97,6 +97,13 @@ def solution_generation(visit_first=None, vehicles=None, alpha=1, beta=1, gamma=
         # np.random.shuffle(important_vehicles)
         # vehicles = np.concatenate([important_vehicles, vehicles])
 
+    # weight matrix can be precomputed for a whole iteration
+    closeness = 1.0 / (distances + 1e-20)             # this NEVER changes, could be computed just once
+    cost_mat = np.zeros_like(phero_mats)
+    for i in range(phero_mats.shape[0]):
+        temp = phero_mats[i, :, :]
+        cost_mat[i, :, :] = temp * closeness    
+
     # continue until all customers are served
     i = 0
     while(sum(open_demand) != 0):
@@ -105,8 +112,9 @@ def solution_generation(visit_first=None, vehicles=None, alpha=1, beta=1, gamma=
         route = [0] # start at depot
         v_type = idx_2_type(vehicles[i])
         while(left_stock > 0):
+            
             # the current position of the ant is written at the last position of route
-            next_customer = choose_customer(route[-1], open_demand, left_stock, v_type)
+            next_customer = choose_customer(route[-1], open_demand, left_stock, v_type, cost_mat)
             # if the first customer to visit was given as an argument, 
             # overwrite the customer found with the given one
             if visit_first:
@@ -140,14 +148,13 @@ def idx_2_type(idx):
 #   - the pheromone,
 #   - the distance,
 #   - demand/stock --> took that part out again, because it only slowed down and did not improve the solution
-def choose_customer(position, open_demand, stock, v_type):
+def choose_customer(position, open_demand, stock, v_type, cost_mat):
     interesting_idx = open_demand > 0
-    pheromone = phero_mats[v_type, position, interesting_idx]
-    
-    closeness = 1 / distances[position, interesting_idx]
-    
-    weights = pheromone * closeness
-    chosen = helpers.pick_weighted_index()
+    # pheromone = phero_mats[v_type, position, interesting_idx]    
+    # closeness = 1 / distances[position, interesting_idx]    
+    # weights = pheromone * closeness
+    weights = cost_mat[v_type, position, interesting_idx]
+    chosen = helpers.pick_weighted_index(weights)
 
     true_idx = np.where(open_demand > 0)[0][chosen]
     return true_idx
