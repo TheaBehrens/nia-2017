@@ -145,9 +145,9 @@ def choose_customer(position, open_demand, stock, v_type):
     pheromone = phero_mats[v_type, position, interesting_idx]
     
     closeness = 1 / distances[position, interesting_idx]
-   
-    weights = pheromone * closeness
-    chosen = helpers.pick_weighted_index(weights)
+    denominator = np.sum(pheromone * closeness)
+    probabilities = pheromone * closeness / denominator
+    chosen = np.random.multinomial(1, probabilities).argmax()
 
     true_idx = np.where(open_demand > 0)[0][chosen]
     return true_idx
