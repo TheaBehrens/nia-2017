@@ -1,6 +1,12 @@
 import numpy as np
 from numba import jit
 
+def compute_edge_cost(path, distance_matrix):
+    return distance_matrix[path, np.roll(path, -1)]
+
+def compute_path_cost(path, distance_matrix):
+     return np.sum(compute_edge_cost(path, distance_matrix))
+
 @jit
 def swap(arr, a, b):
 	temp = arr[a]

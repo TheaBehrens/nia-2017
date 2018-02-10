@@ -4,6 +4,8 @@ import matplotlib
 matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt   
 import helpers
+import two_opt
+import time
 
 # several functions have to know the distance and the pheromone of each path
 distances = None
@@ -71,7 +73,7 @@ def initialize(problem_path, initial_pheromone):
 #               (sum over these for all outgoing edges)
 # Not using alpha, beta and gamma at the moment to weight the different components
 # just take them all to equal parts
-def solution_generation(visit_first=None, vehicles=None, alpha=1, beta=1, gamma=1):
+def solution_generation(visit_first=None, vehicles=None, alpha=1, beta=1, gamma=1, iteration=0):
 
     open_demand = np.copy(demand)
     # open_demand = open_demand[:10]
@@ -134,6 +136,30 @@ def solution_generation(visit_first=None, vehicles=None, alpha=1, beta=1, gamma=
         # this ant finished, let the next take over
         i += 1
         solutions.append(route)
+        
+    # ugly, but append [0] to each end and then remove it again 
+    cost_before = path_cost(solutions, vehicles)
+
+    max_depth = 2
+    if iteration > 400:
+        max_depth = None
+    elif iteration > 200:
+        max_depth = 10
+    elif iteration > 100:
+        max_depth = 5
+    
+    #tic = time.time()
+    opt_solutions = [two_opt.optimize(s + [0], distances, max_depth=max_depth)[0] for s in solutions]
+    solutions = [s[:-1] for s in opt_solutions]
+    #elapsed = time.time() - tic
+
+    cost_after = path_cost(solutions, vehicles)
+    gain = cost_before - cost_after
+    print("cost_before: ", cost_before, " cost after: ", cost_after, "gain: ", gain)
+    # print("cost_before: ", cost_before)
+    #print(len(solutions))
+
+
     return (solutions, vehicles)
 
 # helper function
@@ -189,7 +215,7 @@ def add_pheromone(tours, cost, Q, v_idx):
 
 
 # evaporation and intensification
-def pheromone_changes(tours, vehicle_idx, evaporation_rate=0.01, Q=100):
+def pheromone_changes(tours, vehicle_idx, evaporation_rate=0.005, Q=200):
     # evaporation:
     global phero_mats
     phero_mats = (1-evaporation_rate) * phero_mats
@@ -202,7 +228,7 @@ def pheromone_changes(tours, vehicle_idx, evaporation_rate=0.01, Q=100):
     return cost
 
 
-def collect_several_solutions(vehicle_idx=None, batch_size=100, keep_v=0, enforce_diverse_start=False):
+def collect_several_solutions(vehicle_idx=None, batch_size=100, keep_v=0, enforce_diverse_start=False, iteration=0):
     sol_list = []
     if enforce_diverse_start:
         # have a shuffeled list of indices of all customers
@@ -212,14 +238,14 @@ def collect_several_solutions(vehicle_idx=None, batch_size=100, keep_v=0, enforc
     for i in range(1, batch_size+1):
         if(vehicle_idx and i<len(vehicle_idx)):
             if(enforce_diverse_start):
-                sol_list.append(solution_generation(visit_first=customers[i], vehicles=vehicle_idx[i]))
+                sol_list.append(solution_generation(visit_first=customers[i], vehicles=vehicle_idx[i], iteration=iteration))
             else:
-                sol_list.append(solution_generation(vehicles=vehicle_idx[i]))
+                sol_list.append(solution_generation(vehicles=vehicle_idx[i], iteration=iteration))
         else: # not specifying the order of vehicles to use
             if(enforce_diverse_start):
-                sol_list.append(solution_generation(visit_first=customers[i]))
+                sol_list.append(solution_generation(visit_first=customers[i], iteration=iteration))
             else:
-                sol_list.append(solution_generation())
+                sol_list.append(solution_generation(iteration=iteration))
     cost_arr = np.zeros((len(sol_list,)))
     for i in range(len(sol_list)):
         cost = pheromone_changes(sol_list[i][0], sol_list[i][1])
@@ -262,11 +288,14 @@ def do_iterations(iterations, batch_size=100, keep_v=0, enforce_diverse_start=0)
     value_history = np.zeros((iterations, 2))
     v_assign = None
     for i in range(iterations):
+        print("iteration ", i)
         if (i > enforce_until):
             enforce_diverse_start = False
-        v_assign, meanV, minV = collect_several_solutions(v_assign, batch_size, keep_v, enforce_diverse_start)
+        v_assign, meanV, minV = collect_several_solutions(v_assign, batch_size, keep_v, enforce_diverse_start, i)
         value_history[i, 0] = meanV
         value_history[i, 1] = minV
+
+    print("global min:", np.min(value_history[:,1]))
 
     # plt.figure()
     # plt.suptitle('Mean and min of the batches')
