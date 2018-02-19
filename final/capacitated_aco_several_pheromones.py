@@ -262,6 +262,7 @@ def do_iterations(iterations, batch_size=100, keep_v=0, enforce_diverse_start=0)
         if (i==1):
             first_sol = current_best_sol
         if(minV <= alltimeMinV):
+            alltimeMinV = minV
             best_sol = current_best_sol
         value_history[i, 0] = meanV
         value_history[i, 1] = minV
@@ -272,7 +273,7 @@ def do_iterations(iterations, batch_size=100, keep_v=0, enforce_diverse_start=0)
     
     projected = np.dot(distances, np.transpose(eigenVecs[:dims,:]))
     
-    fig, axes = plt.subplots(1,2)
+    fig, axes = plt.subplots(2,1)
     colors = 'rgbycmkrgbycmkrgbycmk'
     for i in range(len(best_sol)):
         for j in range(len(best_sol[i])):
@@ -282,8 +283,10 @@ def do_iterations(iterations, batch_size=100, keep_v=0, enforce_diverse_start=0)
         for j in range(len(first_sol[i])):
             axes[1].plot([projected[first_sol[i][j-1],0], projected[first_sol[i][j], 0]], 
                       [projected[first_sol[i][j-1],1], projected[first_sol[i][j], 1]], color=colors[i])
-    axes[0].set_title("best solution")
-    axes[1].set_title("first solution")
+    title = "Best solution, " + str(alltimeMinV)
+    axes[0].set_title(title)
+    title = "First solution, " + str(value_history[0,1])
+    axes[1].set_title(title)
     plt.show()
     
     
