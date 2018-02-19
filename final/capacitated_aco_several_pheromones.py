@@ -268,13 +268,18 @@ def do_iterations(iterations, batch_size=100, keep_v=0, enforce_diverse_start=0)
         value_history[i, 1] = minV
 
     # visualize the found path:
+    # using singular value decomposition to find a way to plot the cities in 2d
     U, s, eigenVecs =  np.linalg.svd(distances, full_matrices=False)
     dims = 2
-    
     projected = np.dot(distances, np.transpose(eigenVecs[:dims,:]))
     
+    # TODO things to improve:
+    # - could choose the colors based on vehicle type
+    # - increade the line width
+    # - plot not only the one best solution, but several good ones for comparison
+    # - add a more visible marker to the depot location
     fig, axes = plt.subplots(2,1)
-    colors = 'rgbycmkrgbycmkrgbycmk'
+    colors = 'rgbycmkrgbycmkrgbycmk' 
     for i in range(len(best_sol)):
         for j in range(len(best_sol[i])):
             axes[0].plot([projected[best_sol[i][j-1],0], projected[best_sol[i][j], 0]], 
