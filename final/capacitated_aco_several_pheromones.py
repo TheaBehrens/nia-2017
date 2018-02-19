@@ -232,7 +232,8 @@ def collect_several_solutions(vehicle_idx=None, batch_size=100, keep_v=0, enforc
         print(for_print)
     print(collect_vehicle_assignments[0][:10])
     '''
-    return collect_vehicle_assignments, np.mean(cost_arr), np.min(cost_arr)
+    best_solution = sol_list[idx_good_solutions[0]][0]
+    return collect_vehicle_assignments, np.mean(cost_arr), np.min(cost_arr), best_solution
   
 
 def do_iterations(iterations, batch_size=100, keep_v=0, enforce_diverse_start=0):
@@ -251,12 +252,41 @@ def do_iterations(iterations, batch_size=100, keep_v=0, enforce_diverse_start=0)
             print('enforce a diverse start until', enforce_until)
     value_history = np.zeros((iterations, 2))
     v_assign = None
+    best_sol = None
+    first_sol = None
+    alltimeMinV = np.Inf # correct?
     for i in range(iterations):
         if (i > enforce_until):
             enforce_diverse_start = False
-        v_assign, meanV, minV = collect_several_solutions(v_assign, batch_size, keep_v, enforce_diverse_start)
+        v_assign, meanV, minV, current_best_sol = collect_several_solutions(v_assign, batch_size, keep_v, enforce_diverse_start)
+        if (i==1):
+            first_sol = current_best_sol
+        if(minV <= alltimeMinV):
+            best_sol = current_best_sol
         value_history[i, 0] = meanV
         value_history[i, 1] = minV
+
+    # visualize the found path:
+    U, s, eigenVecs =  np.linalg.svd(distances, full_matrices=False)
+    dims = 2
+    
+    projected = np.dot(distances, np.transpose(eigenVecs[:dims,:]))
+    
+    fig, axes = plt.subplots(1,2)
+    colors = 'rgbycmkrgbycmkrgbycmk'
+    for i in range(len(best_sol)):
+        for j in range(len(best_sol[i])):
+            axes[0].plot([projected[best_sol[i][j-1],0], projected[best_sol[i][j], 0]], 
+                      [projected[best_sol[i][j-1],1], projected[best_sol[i][j], 1]], color=colors[i])
+    for i in range(len(first_sol)):
+        for j in range(len(first_sol[i])):
+            axes[1].plot([projected[first_sol[i][j-1],0], projected[first_sol[i][j], 0]], 
+                      [projected[first_sol[i][j-1],1], projected[first_sol[i][j], 1]], color=colors[i])
+    axes[0].set_title("best solution")
+    axes[1].set_title("first solution")
+    plt.show()
+    
+    
 
     # plt.figure()
     # plt.suptitle('Mean and min of the batches')
