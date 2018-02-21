@@ -8,21 +8,13 @@ phero_mats = None
 capacity = None
 demand = None
 t_cost = None
+types = None
+each_vehicle_once = None
 
 # TODO ideas to add:
 # is there any other way to learn good vehicle assignments? 
-# 
-# maybe could also enforce vehicle-diversity?
-# otherwise the random shuffeling will 'prefer' vehicles with small capacitiy, as they exist in greater numbers
-# 4 different vehicle-types
-# in this case solution could be
-# 2x 1000
-# 4x 500
-# 7x 300
-# 20x 100
-# 1x 1000, 2x 500
-# ...
-# 
+ 
+
 
 # helper function to read in the problem from file
 def read_file(filename):
@@ -38,7 +30,7 @@ def read_file(filename):
 # each arc has pheromone trail associated with it
 # --> same value for all arcs in the beginning
 def initialize(problem_path, initial_pheromone):
-    global distances, phero_mats, capacity, demand, t_cost
+    global distances, phero_mats, capacity, demand, t_cost, each_vehicle_once, types
     dist = read_file(problem_path + 'distance.txt') 
     capacity = read_file(problem_path + 'capacity.txt')
     demand = read_file(problem_path + 'demand.txt')
@@ -51,7 +43,7 @@ def initialize(problem_path, initial_pheromone):
     demand = np.insert(demand, 0, 0)                     # (101,)
     distances = np.asarray(dist, dtype=int)              # (101,101)
     t_cost = np.asarray(t_cost, dtype=int).squeeze()     # (33,)
-    types = np.unique(capacity)
+    types, each_vehicle_once = np.unique(capacity, return_index=True)
     
     # initializing all pheromone values to the specified value
     # assuming that the value changes in capacity and cost are at the same places
@@ -68,7 +60,7 @@ def initialize(problem_path, initial_pheromone):
 #               (sum over these for all outgoing edges)
 # Not using alpha, beta and gamma at the moment to weight the different components
 # just take them all to equal parts
-def solution_generation(visit_first=None, vehicles=None, alpha=1, beta=1, gamma=1):
+def solution_generation(visit_first=None, vehicles=None, alpha=1, beta=1, gamma=1, all_vehicles=False):
 
     open_demand = np.copy(demand)
     # open_demand = open_demand[:10]
@@ -90,9 +82,10 @@ def solution_generation(visit_first=None, vehicles=None, alpha=1, beta=1, gamma=
         np.random.shuffle(vehicles)
         # be sure to include the different types of vehicles... 
         # should be made more general, not so problem specific as it is at the moment...
-        # important_vehicles = np.array([0,-1, 20, -3])
-        # np.random.shuffle(important_vehicles)
-        # vehicles = np.concatenate([important_vehicles, vehicles])
+        if(all_vehicles):
+            important_vehicles = each_vehicle_once
+            np.random.shuffle(important_vehicles)
+            vehicles = np.concatenate([important_vehicles, vehicles])
 
     # continue until all customers are served
     i = 0
@@ -128,7 +121,6 @@ def solution_generation(visit_first=None, vehicles=None, alpha=1, beta=1, gamma=
 # helper function
 # to transform the index of a vehicle into the type
 def idx_2_type(idx):
-    types = np.unique(capacity)
     for i in range(len(types)):
         if capacity[idx] == types[i]:
             return i
@@ -192,7 +184,11 @@ def pheromone_changes(tours, vehicle_idx, evaporation_rate=0.01, Q=100):
     return cost
 
 
-def collect_several_solutions(vehicle_idx=None, batch_size=100, keep_v=0, enforce_diverse_start=False):
+def collect_several_solutions(vehicle_idx=None, 
+                              batch_size=100, 
+                              keep_v=0, 
+                              enforce_diverse_start=False,
+                              all_vehicles=False):
     sol_list = []
     if enforce_diverse_start:
         # have a shuffeled list of indices of all customers
@@ -201,12 +197,18 @@ def collect_several_solutions(vehicle_idx=None, batch_size=100, keep_v=0, enforc
         np.random.shuffle(customers)
     for i in range(1, batch_size+1):
         if(vehicle_idx and i<len(vehicle_idx)):
-            if(enforce_diverse_start):
-                sol_list.append(solution_generation(visit_first=customers[i], vehicles=vehicle_idx[i]))
+            if(enforce_diverse_start and all_vehicles):
+                sol_list.append(solution_generation(all_vehicles=True))
+            if(enforce_diverse_start and not(all_vehicles)):
+                sol_list.append(solution_generation(visit_first=customers[i], 
+                                                    vehicles=vehicle_idx[i]))
+
             else:
                 sol_list.append(solution_generation(vehicles=vehicle_idx[i]))
         else: # not specifying the order of vehicles to use
-            if(enforce_diverse_start):
+            if(enforce_diverse_start and all_vehicles):
+                sol_list.append(solution_generation(all_vehicles=True))
+            if(enforce_diverse_start and not(all_vehicles)):
                 sol_list.append(solution_generation(visit_first=customers[i]))
             else:
                 sol_list.append(solution_generation())
@@ -233,10 +235,25 @@ def collect_several_solutions(vehicle_idx=None, batch_size=100, keep_v=0, enforc
     print(collect_vehicle_assignments[0][:10])
     '''
     best_solution = sol_list[idx_good_solutions[0]][0]
-    return collect_vehicle_assignments, np.mean(cost_arr), np.min(cost_arr), best_solution
+    # best_idx = idx_good_solutions[0]
+    return collect_vehicle_assignments, np.mean(cost_arr), np.min(cost_arr), best_solution#, best_idx
+
+def vehicle_color(v_index):
+    v_type = idx_2_type(v_index)
+    if(v_type == 0):
+        return 'r'
+    if(v_type == 1):
+        return 'y'
+    if(v_type == 2):
+        return 'b'
+    if(v_type == 3):
+        return 'c'
+    return 'k'
+
+
   
 
-def do_iterations(iterations, batch_size=100, keep_v=0, enforce_diverse_start=0):
+def do_iterations(iterations, batch_size=100, keep_v=0, enforce_diverse_start=0, all_vehicles=False):
     if (batch_size > len(demand)):
         batch_size = len(demand) - 1
         print('reduced the batch size to', batch_size, ', the number of customers in this problem')
@@ -258,12 +275,12 @@ def do_iterations(iterations, batch_size=100, keep_v=0, enforce_diverse_start=0)
     for i in range(iterations):
         if (i > enforce_until):
             enforce_diverse_start = False
-        v_assign, meanV, minV, current_best_sol = collect_several_solutions(v_assign, batch_size, keep_v, enforce_diverse_start)
+        v_assign, meanV, minV, current_best_sol = collect_several_solutions(v_assign, batch_size, keep_v, enforce_diverse_start, all_vehicles)
         if (i==1):
-            first_sol = current_best_sol
+            first_sol = (current_best_sol, v_assign[0])
         if(minV <= alltimeMinV):
             alltimeMinV = minV
-            best_sol = current_best_sol
+            best_sol = (current_best_sol, v_assign[0])
         value_history[i, 0] = meanV
         value_history[i, 1] = minV
 
@@ -273,50 +290,109 @@ def do_iterations(iterations, batch_size=100, keep_v=0, enforce_diverse_start=0)
     dims = 2
     projected = np.dot(distances, np.transpose(eigenVecs[:dims,:]))
     
-    # TODO things to improve:
-    # - could choose the colors based on vehicle type
-    # - increade the line width
+    # ideas to improve:
+    # - could base the location of the cities on another PCA or TSNE (?) algorithm
     # - plot not only the one best solution, but several good ones for comparison
-    # - add a more visible marker to the depot location
-    fig, axes = plt.subplots(2,1)
+    fig, axes = plt.subplots(1,3, sharex=True, sharey=True)
     colors = 'rgbycmkrgbycmkrgbycmk' 
-    for i in range(len(best_sol)):
-        for j in range(len(best_sol[i])):
-            axes[0].plot([projected[best_sol[i][j-1],0], projected[best_sol[i][j], 0]], 
-                      [projected[best_sol[i][j-1],1], projected[best_sol[i][j], 1]], color=colors[i])
-    for i in range(len(first_sol)):
-        for j in range(len(first_sol[i])):
-            axes[1].plot([projected[first_sol[i][j-1],0], projected[first_sol[i][j], 0]], 
-                      [projected[first_sol[i][j-1],1], projected[first_sol[i][j], 1]], color=colors[i])
+    bs = best_sol[0]
+    for i in range(len(bs)):
+        for j in range(len(bs[i])):
+            c = vehicle_color(best_sol[1][i])
+            axes[0].plot([projected[bs[i][j-1],0], projected[bs[i][j], 0]], 
+                      [projected[bs[i][j-1],1], projected[bs[i][j], 1]], color=c)
+
+    for i in range(len(current_best_sol)):
+        for j in range(len(current_best_sol[i])):
+            c = vehicle_color(v_assign[0][i])
+            axes[1].plot([projected[current_best_sol[i][j-1],0], projected[current_best_sol[i][j], 0]], 
+                      [projected[current_best_sol[i][j-1],1], projected[current_best_sol[i][j], 1]], color=c)
+    fs = first_sol[0]
+    for i in range(len(fs)):
+        for j in range(len(fs[i])): 
+            c = vehicle_color(first_sol[1][i])
+            axes[2].plot([projected[fs[i][j-1],0], projected[fs[i][j], 0]], 
+                      [projected[fs[i][j-1],1], projected[fs[i][j], 1]], color=c)
+
+    # adding the customers (size dependent on demand):
+    axes[0].scatter(projected[:,0], projected[:,1], s=(demand**2)/10)
+    axes[1].scatter(projected[:,0], projected[:,1], s=(demand**2)/10)
+    axes[2].scatter(projected[:,0], projected[:,1], s=(demand**2)/10)
+    # adding the depot
+    axes[0].scatter(projected[0,0], projected[0,1], c='k', marker='x', s=100, linewidths=3)
+    axes[1].scatter(projected[0,0], projected[0,1], c='k', marker='x', s=100, linewidths=3)
+    axes[2].scatter(projected[0,0], projected[0,1], c='k', marker='x', s=100, linewidths=3)
+    # adding titles
     title = "Best solution, " + str(alltimeMinV)
     axes[0].set_title(title)
-    title = "First solution, " + str(value_history[0,1])
+    title = "Last solution, " + str(value_history[-1,1])
     axes[1].set_title(title)
+    title = "First solution, " + str(value_history[0,1])
+    axes[2].set_title(title)
+    # turning the ticks off
+    axes[0].tick_params(axis='both', which='both', bottom='off', top='off',
+                       left='off', right='off', labelleft='off', labelbottom='off') 
+    axes[1].tick_params(axis='both', which='both', bottom='off', top='off',
+                       left='off', right='off', labelleft='off', labelbottom='off') 
+    axes[2].tick_params(axis='both', which='both', bottom='off', top='off',
+                       left='off', right='off', labelleft='off', labelbottom='off') 
+    plt.show()
+
+    fig, axes = plt.subplots(1,2, sharex=True, sharey=True)
+    for i in range(len(bs)):
+        for j in range(len(bs[i])):
+            c = vehicle_color(best_sol[1][i])
+            axes[0].plot([projected[bs[i][j-1],0], projected[bs[i][j], 0]], 
+                      [projected[bs[i][j-1],1], projected[bs[i][j], 1]], color=c)
+            axes[1].plot([projected[bs[i][j-1],0], projected[bs[i][j], 0]], 
+                      [projected[bs[i][j-1],1], projected[bs[i][j], 1]], color=colors[i])
+    # adding the customers (size dependent on demand)
+    axes[0].scatter(projected[:,0], projected[:,1], s=(demand**2)/10)
+    axes[1].scatter(projected[:,0], projected[:,1], s=(demand**2)/10)
+    # adding the depot
+    axes[0].scatter(projected[0,0], projected[0,1], c='k', marker='x', s=100, linewidths=3)
+    axes[1].scatter(projected[0,0], projected[0,1], c='k', marker='x', s=100, linewidths=3)
+    # turning the ticks off
+    axes[0].tick_params(axis='both', which='both', bottom='off', top='off',
+                       left='off', right='off', labelleft='off', labelbottom='off') 
+    axes[1].tick_params(axis='both', which='both', bottom='off', top='off',
+                       left='off', right='off', labelleft='off', labelbottom='off') 
+    # adding titles
+    axes[0].set_title("colors according to vehicle type")
+    axes[1].set_title("different color for each vehicle")
+    plt.suptitle("Best solution, two visualizations")
     plt.show()
     
     
 
-    # plt.figure()
-    # plt.suptitle('Mean and min of the batches')
-    # x = np.linspace(0, iterations*batch_size, num=iterations)
-    # plt.plot(x, value_history[:,0])
-    # plt.plot(x, value_history[:,1])
-    # plt.axvline(enforce_until*batch_size)
-    # plt.xlabel('single runs')
-    # plt.ylabel('cost')
-    # plt.show()
+    plt.figure()
+    plt.suptitle('Mean and min of the batches')
+    x = np.linspace(0, iterations*batch_size, num=iterations)
+    plt.plot(x, value_history[:,0])
+    plt.plot(x, value_history[:,1])
+    plt.axvline(enforce_until*batch_size)
+    plt.xlabel('single runs')
+    plt.ylabel('cost')
+    plt.show()
+    
     '''
+    hmm, this takes forever and also it does not really look like what i expected...
+    # could also plot the pheromone trails between the cities...
+    # with the pheromone-strenght as the alpha-value?
     # just to get some feeling for the values in the pheromone_mat
-    f, axarr = plt.subplots(2,3, sharex=True, sharey=True)
+    first_vehicle = phero_mats[0,:,:]
+    first_vehicle /= np.max(first_vehicle)
+    f, axarr = plt.subplots(2,3)#, sharex=True, sharey=True)
     plt.suptitle('part of the pheromone matrices')
     cnt = 0
-    axarr[0,0].imshow(phero_mats[0,:30,:30], interpolation='none', origin='bottom', cmap='jet')
+    for i in range(phero_mats[0].shape[0]):
+        for j in range(phero_mats[0].shape[1]):
+            axarr[0,0].plot([projected[i,0], projected[i,1]],
+                            [projected[j,0], projected[j,1]], alpha=first_vehicle[i,j])
+
     axarr[0,0].set_title('first vehicle')
-    axarr[0,1].imshow(phero_mats[1,:30,:30], interpolation='none', origin='bottom', cmap='jet')
     axarr[0,1].set_title('second vehicle')
-    axarr[1,0].imshow(phero_mats[2,:30,:30], interpolation='none', origin='bottom', cmap='jet')
     axarr[1,0].set_title('third vehicle')
-    axarr[1,1].imshow(phero_mats[3,:30,:30], interpolation='none', origin='bottom', cmap='jet')
     axarr[1,1].set_title('fourth vehicle')
     axarr[0,2].imshow(distances[:30,:30], interpolation='none', origin='bottom', cmap='jet')
     axarr[0,2].set_title('distances')
@@ -329,4 +405,5 @@ def do_iterations(iterations, batch_size=100, keep_v=0, enforce_diverse_start=0)
         print(np.mean(phero_mats[j,:,:]))
         print(np.max(phero_mats[j,:,:]))
         print(np.min(phero_mats[j,:,:]))
-     '''
+        
+    '''
