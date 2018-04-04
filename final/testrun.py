@@ -8,7 +8,7 @@ INITIAL_PHEROMONE = 0.5
 
 # During each iteration as many tours as specified in BATCH_SIZE are found
 # Pheromone matrices updated only after the iteration for all
-ITERATIONS = 30
+ITERATIONS = 500
 
 # after how many runs the pheromone-trails are updated
 # same size as there are customers seems reasonable
@@ -26,7 +26,7 @@ KEEP_VEHICLES = int(np.floor(0.2 * BATCH_SIZE))
 # but it might make sense to enforce diversity in the beginning, to better explore the possibilities
 # if DIVERSE_VEHICLES is True, it enforces to consider all types of vehicles
 # else it enforces all customers to be considered a starting point during the batch
-ENFORCE_DIVERSE_START = 0.7
+ENFORCE_DIVERSE_START = 0.4
 
 # to force the algorithm to consider all types of vehicles for the first fraction of iterations
 DIVERSE_VEHICLES = True

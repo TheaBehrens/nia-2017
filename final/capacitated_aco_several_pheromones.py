@@ -1,19 +1,21 @@
 import csv
 import numpy as np
-import matplotlib.pyplot as plt 
+import matplotlib
+matplotlib.use("TkAgg")
+import matplotlib.pyplot as plt   
+import helpers
+import two_opt
+import time
 
 # several functions have to know the distance and the pheromone of each path
 distances = None
+closeness = None
 phero_mats = None
 capacity = None
 demand = None
 t_cost = None
 types = None
 each_vehicle_once = None
-
-# TODO ideas to add:
-# is there any other way to learn good vehicle assignments? 
- 
 
 
 # helper function to read in the problem from file
@@ -30,7 +32,7 @@ def read_file(filename):
 # each arc has pheromone trail associated with it
 # --> same value for all arcs in the beginning
 def initialize(problem_path, initial_pheromone):
-    global distances, phero_mats, capacity, demand, t_cost, each_vehicle_once, types
+    global distances, phero_mats, capacity, demand, t_cost, each_vehicle_once, types, closeness
     dist = read_file(problem_path + 'distance.txt') 
     capacity = read_file(problem_path + 'capacity.txt')
     demand = read_file(problem_path + 'demand.txt')
@@ -42,6 +44,7 @@ def initialize(problem_path, initial_pheromone):
     # to use the same indices for demand and distances
     demand = np.insert(demand, 0, 0)                     # (101,)
     distances = np.asarray(dist, dtype=int)              # (101,101)
+    closeness = 1.0 / (distances + 1e-20)
     t_cost = np.asarray(t_cost, dtype=int).squeeze()     # (33,)
     types, each_vehicle_once = np.unique(capacity, return_index=True)
     
@@ -60,7 +63,7 @@ def initialize(problem_path, initial_pheromone):
 #               (sum over these for all outgoing edges)
 # Not using alpha, beta and gamma at the moment to weight the different components
 # just take them all to equal parts
-def solution_generation(visit_first=None, vehicles=None, alpha=1, beta=1, gamma=1, all_vehicles=False):
+def solution_generation(visit_first=None, vehicles=None, alpha=1, beta=1, gamma=1, all_vehicles=False, iteration=0):
 
     open_demand = np.copy(demand)
     # open_demand = open_demand[:10]
@@ -81,11 +84,16 @@ def solution_generation(visit_first=None, vehicles=None, alpha=1, beta=1, gamma=
         vehicles = np.arange(len(t_cost))
         np.random.shuffle(vehicles)
         # be sure to include the different types of vehicles... 
-        # should be made more general, not so problem specific as it is at the moment...
+        
         if(all_vehicles):
             important_vehicles = each_vehicle_once
             np.random.shuffle(important_vehicles)
             vehicles = np.concatenate([important_vehicles, vehicles])
+
+    cost_mat = np.zeros_like(phero_mats)
+    for i in range(phero_mats.shape[0]):
+        temp = phero_mats[i, :, :]
+        cost_mat[i, :, :] = temp * closeness
 
     # continue until all customers are served
     i = 0
@@ -96,7 +104,7 @@ def solution_generation(visit_first=None, vehicles=None, alpha=1, beta=1, gamma=
         v_type = idx_2_type(vehicles[i])
         while(left_stock > 0):
             # the current position of the ant is written at the last position of route
-            next_customer = choose_customer(route[-1], open_demand, left_stock, v_type)
+            next_customer = choose_customer(route[-1], open_demand, left_stock, v_type, cost_mat)
             # if the first customer to visit was given as an argument, 
             # overwrite the customer found with the given one
             if visit_first:
@@ -116,6 +124,28 @@ def solution_generation(visit_first=None, vehicles=None, alpha=1, beta=1, gamma=
         # this ant finished, let the next take over
         i += 1
         solutions.append(route)
+        
+    # ugly, but append [0] to each end and then remove it again 
+    cost_before = path_cost(solutions, vehicles)
+
+    max_depth = 2
+    if iteration > 400:
+        max_depth = None
+    elif iteration > 200:
+        max_depth = 10
+    elif iteration > 100:
+        max_depth = 5
+    
+    #tic = time.time()
+    opt_solutions = [two_opt.optimize(s + [0], distances, max_depth=max_depth)[0] for s in solutions]
+    solutions = [s[:-1] for s in opt_solutions]
+    #elapsed = time.time() - tic
+
+    cost_after = path_cost(solutions, vehicles)
+    gain = cost_before - cost_after
+    # print("cost_before: ", cost_before, " cost after: ", cost_after, "gain: ", gain)
+    # print('\t', cost_after, gain, 'max depth:', max_depth)
+
     return (solutions, vehicles)
 
 # helper function
@@ -129,14 +159,14 @@ def idx_2_type(idx):
 #   - the pheromone,
 #   - the distance,
 #   - demand/stock --> took that part out again, because it only slowed down and did not improve the solution
-def choose_customer(position, open_demand, stock, v_type):
+def choose_customer(position, open_demand, stock, v_type, cost_mat):
     interesting_idx = open_demand > 0
-    pheromone = phero_mats[v_type, position, interesting_idx]
-    
-    closeness = 1 / distances[position, interesting_idx]
-    denominator = np.sum(pheromone * closeness)
-    probabilities = pheromone * closeness / denominator
-    chosen = np.random.multinomial(1, probabilities).argmax()
+    # pheromone = phero_mats[v_type, position, interesting_idx]
+    # denominator = np.sum(pheromone * closeness)
+    # probabilities = pheromone * closeness / denominator
+    weights = cost_mat[v_type, position, interesting_idx]
+    # chosen = np.random.multinomial(1, probabilities).argmax()
+    chosen = helpers.pick_weighted_index(weights)
 
     true_idx = np.where(open_demand > 0)[0][chosen]
     return true_idx
@@ -152,7 +182,6 @@ def path_cost(tours, vehicle_idx):
         for j in range(len(tours[i])):
             # when j==0: adds way (last_node -- depot)
             tour_length += distances[tours[i][j-1], tours[i][j]]
-
         cost += fuel_consumption * tour_length
     return(cost)
 
@@ -188,7 +217,8 @@ def collect_several_solutions(vehicle_idx=None,
                               batch_size=100, 
                               keep_v=0, 
                               enforce_diverse_start=False,
-                              all_vehicles=False):
+                              all_vehicles=False,
+                              iteration=0):
     sol_list = []
     if enforce_diverse_start:
         # have a shuffeled list of indices of all customers
@@ -198,20 +228,21 @@ def collect_several_solutions(vehicle_idx=None,
     for i in range(1, batch_size+1):
         if(vehicle_idx and i<len(vehicle_idx)):
             if(enforce_diverse_start and all_vehicles):
-                sol_list.append(solution_generation(all_vehicles=True))
+                sol_list.append(solution_generation(all_vehicles=True, iteration=iteration))
             if(enforce_diverse_start and not(all_vehicles)):
                 sol_list.append(solution_generation(visit_first=customers[i], 
-                                                    vehicles=vehicle_idx[i]))
+                                                    vehicles=vehicle_idx[i],
+                                                    iteration=iteration))
 
             else:
-                sol_list.append(solution_generation(vehicles=vehicle_idx[i]))
+                sol_list.append(solution_generation(vehicles=vehicle_idx[i], iteration=iteration))
         else: # not specifying the order of vehicles to use
             if(enforce_diverse_start and all_vehicles):
-                sol_list.append(solution_generation(all_vehicles=True))
+                sol_list.append(solution_generation(all_vehicles=True, iteration=iteration))
             if(enforce_diverse_start and not(all_vehicles)):
-                sol_list.append(solution_generation(visit_first=customers[i]))
+                sol_list.append(solution_generation(visit_first=customers[i], iteration=iteration))
             else:
-                sol_list.append(solution_generation())
+                sol_list.append(solution_generation(iteration=iteration))
     cost_arr = np.zeros((len(sol_list,)))
     for i in range(len(sol_list)):
         cost = pheromone_changes(sol_list[i][0], sol_list[i][1])
@@ -226,14 +257,6 @@ def collect_several_solutions(vehicle_idx=None,
     for i in range(keep_v):
         # print(idx_good_solutions[i])
         collect_vehicle_assignments.append(sol_list[idx_good_solutions[i]][1])
-    '''
-        # to see which vehicles were used (gives a lot of print output)
-        for_print = []
-        for j in range(19):
-            for_print.append(idx_2_type(collect_vehicle_assignments[i][j]))
-        print(for_print)
-    print(collect_vehicle_assignments[0][:10])
-    '''
     best_solution = sol_list[idx_good_solutions[0]][0]
     # best_idx = idx_good_solutions[0]
     return collect_vehicle_assignments, np.mean(cost_arr), np.min(cost_arr), best_solution#, best_idx
@@ -275,7 +298,7 @@ def do_iterations(iterations, batch_size=100, keep_v=0, enforce_diverse_start=0,
     for i in range(iterations):
         if (i > enforce_until):
             enforce_diverse_start = False
-        v_assign, meanV, minV, current_best_sol = collect_several_solutions(v_assign, batch_size, keep_v, enforce_diverse_start, all_vehicles)
+        v_assign, meanV, minV, current_best_sol = collect_several_solutions(v_assign, batch_size, keep_v, enforce_diverse_start, all_vehicles, i)
         if (i==1):
             first_sol = (current_best_sol, v_assign[0])
         if(minV <= alltimeMinV):
@@ -371,39 +394,7 @@ def do_iterations(iterations, batch_size=100, keep_v=0, enforce_diverse_start=0,
     plt.plot(x, value_history[:,0])
     plt.plot(x, value_history[:,1])
     plt.axvline(enforce_until*batch_size)
+    plt.ylim([50000, 250000])
     plt.xlabel('single runs')
     plt.ylabel('cost')
     plt.show()
-    
-    '''
-    hmm, this takes forever and also it does not really look like what i expected...
-    # could also plot the pheromone trails between the cities...
-    # with the pheromone-strenght as the alpha-value?
-    # just to get some feeling for the values in the pheromone_mat
-    first_vehicle = phero_mats[0,:,:]
-    first_vehicle /= np.max(first_vehicle)
-    f, axarr = plt.subplots(2,3)#, sharex=True, sharey=True)
-    plt.suptitle('part of the pheromone matrices')
-    cnt = 0
-    for i in range(phero_mats[0].shape[0]):
-        for j in range(phero_mats[0].shape[1]):
-            axarr[0,0].plot([projected[i,0], projected[i,1]],
-                            [projected[j,0], projected[j,1]], alpha=first_vehicle[i,j])
-
-    axarr[0,0].set_title('first vehicle')
-    axarr[0,1].set_title('second vehicle')
-    axarr[1,0].set_title('third vehicle')
-    axarr[1,1].set_title('fourth vehicle')
-    axarr[0,2].imshow(distances[:30,:30], interpolation='none', origin='bottom', cmap='jet')
-    axarr[0,2].set_title('distances')
-    axarr[1,2].imshow(np.mean(phero_mats[:,:30,:30], axis=0), interpolation='none', origin='bottom', cmap='jet')
-    axarr[1,2].set_title('mean all vehicles')
-    plt.show()
-    print('The values (mean, max, min) of the pheromone matrices are:')
-    for j in range(4):
-        print('matrix ', j)
-        print(np.mean(phero_mats[j,:,:]))
-        print(np.max(phero_mats[j,:,:]))
-        print(np.min(phero_mats[j,:,:]))
-        
-    '''
