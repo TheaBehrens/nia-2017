@@ -1,6 +1,6 @@
 import numpy as np
 import time
-import capacitated_aco_several_pheromones as aco
+import capacitated_aco_opt_end as aco
 
 
 # some parameters...
@@ -8,7 +8,7 @@ INITIAL_PHEROMONE = 0.5
 
 # During each iteration as many tours as specified in BATCH_SIZE are found
 # Pheromone matrices updated only after the iteration for all
-ITERATIONS = 500
+ITERATIONS = 100
 
 # after how many runs the pheromone-trails are updated
 # same size as there are customers seems reasonable
