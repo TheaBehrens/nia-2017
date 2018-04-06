@@ -84,16 +84,21 @@ def solution_generation(visit_first=None, vehicles=None, alpha=1, beta=1, gamma=
         vehicles = np.arange(len(t_cost))
         np.random.shuffle(vehicles)
         # be sure to include the different types of vehicles... 
-        
         if(all_vehicles):
             important_vehicles = each_vehicle_once
             np.random.shuffle(important_vehicles)
             vehicles = np.concatenate([important_vehicles, vehicles])
 
-    cost_mat = np.zeros_like(phero_mats)
+    # preference_mat is the basis for an ant's decision which customer to visit next, based on
+    # - pheromone (different pheromone trails for different vehicle types)
+    # - the distance (closer is prefered)
+    # theoretically this would be the place to take into account the weights alpha, beta 
+    # (and gamma, if one would also include the open demand of the customer and the left stock of the ant)
+    # but at the moment alpha and beta are to be taken as 1, both contribute equally 
+    preference_mat = np.zeros_like(phero_mats)
     for i in range(phero_mats.shape[0]):
         temp = phero_mats[i, :, :]
-        cost_mat[i, :, :] = temp * closeness
+        preference_mat[i, :, :] = temp * closeness
 
     # continue until all customers are served
     i = 0
@@ -104,7 +109,7 @@ def solution_generation(visit_first=None, vehicles=None, alpha=1, beta=1, gamma=
         v_type = idx_2_type(vehicles[i])
         while(left_stock > 0):
             # the current position of the ant is written at the last position of route
-            next_customer = choose_customer(route[-1], open_demand, left_stock, v_type, cost_mat)
+            next_customer = choose_customer(route[-1], open_demand, left_stock, v_type, preference_mat)
             # if the first customer to visit was given as an argument, 
             # overwrite the customer found with the given one
             if visit_first:
@@ -138,13 +143,9 @@ def idx_2_type(idx):
 #   - the pheromone,
 #   - the distance,
 #   - demand/stock --> took that part out again, because it only slowed down and did not improve the solution
-def choose_customer(position, open_demand, stock, v_type, cost_mat):
+def choose_customer(position, open_demand, stock, v_type, preference_mat):
     interesting_idx = open_demand > 0
-    # pheromone = phero_mats[v_type, position, interesting_idx]
-    # denominator = np.sum(pheromone * closeness)
-    # probabilities = pheromone * closeness / denominator
-    weights = cost_mat[v_type, position, interesting_idx]
-    # chosen = np.random.multinomial(1, probabilities).argmax()
+    weights = preference_mat[v_type, position, interesting_idx]
     chosen = helpers.pick_weighted_index(weights)
 
     true_idx = np.where(open_demand > 0)[0][chosen]
@@ -277,7 +278,7 @@ def do_iterations(iterations, batch_size=100, keep_v=0, enforce_diverse_start=0,
     for i in range(iterations):
         if (i > enforce_until):
             enforce_diverse_start = False
-        v_assign, meanV, minV, current_best_sol = collect_several_solutions(v_assign, batch_size, keep_v, enforce_diverse_start, all_vehicles, i)
+        v_assign, meanV, minV, current_best_sol = collect_several_solutions(v_assign, batch_size, keep_v+1, enforce_diverse_start, all_vehicles, i)
         if (i==1):
             first_sol = (current_best_sol, v_assign[0])
         if(minV <= alltimeMinV):
@@ -291,7 +292,7 @@ def do_iterations(iterations, batch_size=100, keep_v=0, enforce_diverse_start=0,
     # adding 2 opt here to the best solution found
     cost_before = alltimeMinV # path_cost(solutions, vehicles)
 
-    max_depth = 10
+    max_depth = 30
     
     tic = time.time()
     opt_solutions = [two_opt.optimize(s + [0], distances, max_depth=max_depth)[0] for s in best_sol[0]]
@@ -336,7 +337,6 @@ def do_iterations(iterations, batch_size=100, keep_v=0, enforce_diverse_start=0,
     # adding titles
     title = "Best solution, " + str(alltimeMinV)
     axes[0].set_title(title)
-    title = "Last solution, " + str(value_history[-1,1])
     title = "Swapped, " + str(cost_after)
     axes[1].set_title(title)
     # turning the ticks off
@@ -347,7 +347,7 @@ def do_iterations(iterations, batch_size=100, keep_v=0, enforce_diverse_start=0,
     plt.show()
 
     fig, axes = plt.subplots(1,2, sharex=True, sharey=True)
-    bs = solutions
+    bs = solutions # take the swapped solution here
     for i in range(len(bs)):
         for j in range(len(bs[i])):
             c = vehicle_color(best_sol[1][i])
@@ -357,7 +357,7 @@ def do_iterations(iterations, batch_size=100, keep_v=0, enforce_diverse_start=0,
                       [projected[bs[i][j-1],1], projected[bs[i][j], 1]], color=colors[i])
     # adding the customers (size dependent on demand)
     axes[0].scatter(projected[:,0], projected[:,1], s=(demand**2)/10)
-    axes[1].scatter(projected[:,0], projected[:,1], s=(demand**2)/10)
+    # axes[1].scatter(projected[:,0], projected[:,1], s=(demand**2)/10)
     # adding the depot
     axes[0].scatter(projected[0,0], projected[0,1], c='k', marker='x', s=100, linewidths=3)
     axes[1].scatter(projected[0,0], projected[0,1], c='k', marker='x', s=100, linewidths=3)
@@ -380,6 +380,8 @@ def do_iterations(iterations, batch_size=100, keep_v=0, enforce_diverse_start=0,
     plt.plot(x, value_history[:,0])
     plt.plot(x, value_history[:,1])
     plt.axvline(enforce_until*batch_size)
+    plt.axhline(alltimeMinV)
+    plt.axhline(cost_after)
     plt.ylim([50000, 250000])
     plt.xlabel('single runs')
     plt.ylabel('cost')
