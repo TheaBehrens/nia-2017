@@ -1,8 +1,8 @@
 import csv
 import numpy as np
-#import matplotlib
-#matplotlib.use("TkAgg")
-#import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use("TkAgg")
+import matplotlib.pyplot as plt
 import helpers
 import two_opt
 import time
@@ -45,6 +45,7 @@ def initialize(problem_path, initial_pheromone):
     demand = np.insert(demand, 0, 0)                     # (101,)
     distances = np.asarray(dist, dtype=int)              # (101,101)
     closeness = 1.0 / (distances + 1e-20)
+    closeness = closeness
     t_cost = np.asarray(t_cost, dtype=int).squeeze()     # (33,)
     types, each_vehicle_once = np.unique(capacity, return_index=True)
 
@@ -97,8 +98,10 @@ def solution_generation(visit_first=None, vehicles=None, alpha=1, beta=1, gamma=
     # but at the moment alpha and beta are to be taken as 1, both contribute equally
     preference_mat = np.zeros_like(phero_mats)
     for i in range(phero_mats.shape[0]):
-        temp = phero_mats[i, :, :]
-        preference_mat[i, :, :] = temp * closeness
+        temp = np.power(phero_mats[i, :, :], 4)
+        closeWeight = closeness
+        denominator = np.sum(temp * closeWeight)
+        preference_mat[i, :, :] = temp * closeWeight / denominator
 
     # continue until all customers are served
     i = 0
@@ -228,7 +231,7 @@ def collect_several_solutions(vehicle_idx=None,
         cost = pheromone_changes(sol_list[i][0], sol_list[i][1])
         cost_arr[i] = cost
     # print('average and min over 100 runs: ', np.mean(cost_arr), np.min(cost_arr))
-    print(min(cost_arr))
+#    print(min(cost_arr))
     idx_good_solutions = np.argsort(cost_arr)
     collect_vehicle_assignments = []
 
@@ -259,17 +262,17 @@ def vehicle_color(v_index):
 def do_iterations(iterations, batch_size=100, keep_v=0, enforce_diverse_start=0, all_vehicles=False):
     if (batch_size > len(demand)):
         batch_size = len(demand) - 1
-        print('reduced the batch size to', batch_size, ', the number of customers in this problem')
+   #     print('reduced the batch size to', batch_size, ', the number of customers in this problem')
     if (keep_v > batch_size):
         keep_v = int(np.floor(0.5 * batch_size))
-        print('reduced the number of vehicles to keep to', keep_v, ' half the batch size')
+  #      print('reduced the number of vehicles to keep to', keep_v, ' half the batch size')
     enforce_until = 0
     if (enforce_diverse_start > 0):
-        if (enforce_diverse_start > 1):
-            print('ignoring this enforce_diverse_start value, expect something between 0 and 1')
-        else:
+#        if (enforce_diverse_start > 1):
+ #           print('ignoring this enforce_diverse_start value, expect something between 0 and 1')
+  #      else:
             enforce_until = int(np.floor(enforce_diverse_start * iterations))
-            print('enforce a diverse start until', enforce_until)
+#            print('enforce a diverse start until', enforce_until)
     value_history = np.zeros((iterations, 2))
     v_assign = None
     best_sol = None
@@ -301,91 +304,91 @@ def do_iterations(iterations, batch_size=100, keep_v=0, enforce_diverse_start=0,
 
     cost_after = path_cost(solutions, best_sol[1])
     gain = cost_before - cost_after
-    print("cost_before: ", cost_before, " cost after: ", cost_after, "gain: ", gain, "time needed:", elapsed)
+#    print("cost_before: ", cost_before, " cost after: ", cost_after, "gain: ", gain, "time needed:", elapsed)
 
     ##################################################
 
     # # visualize the found path:
     # # using singular value decomposition to find a way to plot the cities in 2d
-    # U, s, eigenVecs =  np.linalg.svd(distances, full_matrices=False)
-    # dims = 2
-    # projected = np.dot(distances, np.transpose(eigenVecs[:dims,:]))
+    U, s, eigenVecs =  np.linalg.svd(distances, full_matrices=False)
+    dims = 2
+    projected = np.dot(distances, np.transpose(eigenVecs[:dims,:]))
 
     # # ideas to improve:
     # # - could base the location of the cities on another PCA or TSNE (?) algorithm
     # # - plot not only the one best solution, but several good ones for comparison
-    # fig, axes = plt.subplots(1,2, sharex=True, sharey=True)
-    # colors = 'rgbycmkrgbycmkrgbycmk'
-    # bs = best_sol[0]
-    # for i in range(len(bs)):
-    #     for j in range(len(bs[i])):
-    #         c = vehicle_color(best_sol[1][i])
-    #         axes[0].plot([projected[bs[i][j-1],0], projected[bs[i][j], 0]],
-    #                   [projected[bs[i][j-1],1], projected[bs[i][j], 1]], color=c)
+    fig, axes = plt.subplots(1,2, sharex=True, sharey=True)
+    colors = 'rgbycmkrgbycmkrgbycmk'
+    bs = best_sol[0]
+    for i in range(len(bs)):
+        for j in range(len(bs[i])):
+            c = vehicle_color(best_sol[1][i])
+            axes[0].plot([projected[bs[i][j-1],0], projected[bs[i][j], 0]],
+                      [projected[bs[i][j-1],1], projected[bs[i][j], 1]], color=c)
 
-    # for i in range(len(solutions)):
-    #     for j in range(len(solutions[i])):
-    #         c = vehicle_color(best_sol[1][i])
-    #         axes[1].plot([projected[solutions[i][j-1],0], projected[solutions[i][j], 0]],
-    #                   [projected[solutions[i][j-1],1], projected[solutions[i][j], 1]], color=c)
+    for i in range(len(solutions)):
+        for j in range(len(solutions[i])):
+            c = vehicle_color(best_sol[1][i])
+            axes[1].plot([projected[solutions[i][j-1],0], projected[solutions[i][j], 0]],
+                      [projected[solutions[i][j-1],1], projected[solutions[i][j], 1]], color=c)
 
     # # adding the customers (size dependent on demand):
-    # axes[0].scatter(projected[:,0], projected[:,1], s=(demand**2)/10)
+    axes[0].scatter(projected[:,0], projected[:,1], s=(demand**2)/10)
+    axes[1].scatter(projected[:,0], projected[:,1], s=(demand**2)/10)
+    # # adding the depot
+    axes[0].scatter(projected[0,0], projected[0,1], c='k', marker='x', s=100, linewidths=3)
+    axes[1].scatter(projected[0,0], projected[0,1], c='k', marker='x', s=100, linewidths=3)
+    # # adding titles
+    title = "Best solution, " + str(alltimeMinV)
+    axes[0].set_title(title)
+    title = "Swapped, " + str(cost_after)
+    axes[1].set_title(title)
+    # turning the ticks off
+    axes[0].tick_params(axis='both', which='both', bottom='off', top='off',
+                       left='off', right='off', labelleft='off', labelbottom='off')
+    axes[1].tick_params(axis='both', which='both', bottom='off', top='off',
+                       left='off', right='off', labelleft='off', labelbottom='off')
+    plt.show()
+
+    fig, axes = plt.subplots(1,2, sharex=True, sharey=True)
+    bs = solutions # take the swapped solution here
+    for i in range(len(bs)):
+        for j in range(len(bs[i])):
+            c = vehicle_color(best_sol[1][i])
+            axes[0].plot([projected[bs[i][j-1],0], projected[bs[i][j], 0]],
+                      [projected[bs[i][j-1],1], projected[bs[i][j], 1]], color=c)
+            axes[1].plot([projected[bs[i][j-1],0], projected[bs[i][j], 0]],
+                      [projected[bs[i][j-1],1], projected[bs[i][j], 1]], color=colors[i])
+    # adding the customers (size dependent on demand)
+    axes[0].scatter(projected[:,0], projected[:,1], s=(demand**2)/10)
     # axes[1].scatter(projected[:,0], projected[:,1], s=(demand**2)/10)
-    # # adding the depot
-    # axes[0].scatter(projected[0,0], projected[0,1], c='k', marker='x', s=100, linewidths=3)
-    # axes[1].scatter(projected[0,0], projected[0,1], c='k', marker='x', s=100, linewidths=3)
-    # # adding titles
-    # title = "Best solution, " + str(alltimeMinV)
-    # axes[0].set_title(title)
-    # title = "Swapped, " + str(cost_after)
-    # axes[1].set_title(title)
-    # # turning the ticks off
-    # axes[0].tick_params(axis='both', which='both', bottom='off', top='off',
-    #                    left='off', right='off', labelleft='off', labelbottom='off')
-    # axes[1].tick_params(axis='both', which='both', bottom='off', top='off',
-    #                    left='off', right='off', labelleft='off', labelbottom='off')
-    # plt.show()
-
-    # fig, axes = plt.subplots(1,2, sharex=True, sharey=True)
-    # bs = solutions # take the swapped solution here
-    # for i in range(len(bs)):
-    #     for j in range(len(bs[i])):
-    #         c = vehicle_color(best_sol[1][i])
-    #         axes[0].plot([projected[bs[i][j-1],0], projected[bs[i][j], 0]],
-    #                   [projected[bs[i][j-1],1], projected[bs[i][j], 1]], color=c)
-    #         axes[1].plot([projected[bs[i][j-1],0], projected[bs[i][j], 0]],
-    #                   [projected[bs[i][j-1],1], projected[bs[i][j], 1]], color=colors[i])
-    # # adding the customers (size dependent on demand)
-    # axes[0].scatter(projected[:,0], projected[:,1], s=(demand**2)/10)
-    # # axes[1].scatter(projected[:,0], projected[:,1], s=(demand**2)/10)
-    # # adding the depot
-    # axes[0].scatter(projected[0,0], projected[0,1], c='k', marker='x', s=100, linewidths=3)
-    # axes[1].scatter(projected[0,0], projected[0,1], c='k', marker='x', s=100, linewidths=3)
-    # # turning the ticks off
-    # axes[0].tick_params(axis='both', which='both', bottom='off', top='off',
-    #                    left='off', right='off', labelleft='off', labelbottom='off')
-    # axes[1].tick_params(axis='both', which='both', bottom='off', top='off',
-    #                    left='off', right='off', labelleft='off', labelbottom='off')
-    # # adding titles
-    # axes[0].set_title("colors according to vehicle type")
-    # axes[1].set_title("different color for each vehicle")
-    # plt.suptitle("Best solution, two visualizations")
-    # plt.show()
+    # adding the depot
+    axes[0].scatter(projected[0,0], projected[0,1], c='k', marker='x', s=100, linewidths=3)
+    axes[1].scatter(projected[0,0], projected[0,1], c='k', marker='x', s=100, linewidths=3)
+    # turning the ticks off
+    axes[0].tick_params(axis='both', which='both', bottom='off', top='off',
+                       left='off', right='off', labelleft='off', labelbottom='off')
+    axes[1].tick_params(axis='both', which='both', bottom='off', top='off',
+                       left='off', right='off', labelleft='off', labelbottom='off')
+    # adding titles
+    axes[0].set_title("colors according to vehicle type")
+    axes[1].set_title("different color for each vehicle")
+    plt.suptitle("Best solution, two visualizations")
+    plt.show()
 
 
 
-    # plt.figure()
-    # plt.suptitle('Mean and min of the batches')
-    # x = np.linspace(0, iterations*batch_size, num=iterations)
-    # plt.plot(x, value_history[:,0])
-    # plt.plot(x, value_history[:,1])
-    # plt.axvline(enforce_until*batch_size)
-    # plt.axhline(alltimeMinV)
-    # plt.axhline(cost_after)
-    # plt.ylim([50000, 250000])
-    # plt.xlabel('single runs')
-    # plt.ylabel('cost')
-    # plt.show()
+    plt.figure()
+    plt.suptitle('Mean and min of the batches')
+    x = np.linspace(0, iterations*batch_size, num=iterations)
+    plt.plot(x, value_history[:,0])
+    plt.plot(x, value_history[:,1])
+    plt.axvline(enforce_until*batch_size)
+    plt.axhline(alltimeMinV)
+    plt.axhline(cost_after)
+    plt.ylim([50000, 250000])
+    plt.xlabel('single runs')
+    plt.ylabel('cost')
+    plt.show()
 
     return cost_after
