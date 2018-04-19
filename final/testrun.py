@@ -5,11 +5,12 @@ import capacitated_aco_opt_end as aco
 
 
 # some parameters...
-INITIAL_PHEROMONE = [0.00001]
-
+#0.00001
+INITIAL_PHEROMONE = [0.0001,0.3, 0.5, 0.7]
+KEEP_VEHICLES = False
 # During each iteration as many tours as specified in BATCH_SIZE are found
 # Pheromone matrices updated only after the iteration for all
-ITERATIONS = [100]
+ITERATIONS = [1000]
 
 # after how many runs the pheromone-trails are updated
 # same size as there are customers seems reasonable
@@ -21,13 +22,13 @@ BATCH_SIZE = [100]
 # but it might make sense to enforce diversity in the beginning, to better explore the possibilities
 # if DIVERSE_VEHICLES is True, it enforces to consider all types of vehicles
 # else it enforces all customers to be considered a starting point during the batch
-ENFORCE_DIVERSE_START = [0]
+ENFORCE_DIVERSE_START = [0,  0.6, 0.9]
 
 # to force the algorithm to consider all types of vehicles for the first fraction of iterations
-DIVERSE_VEHICLES = [True]
+DIVERSE_VEHICLES = [True, False]
 
 # proportion of vehicles to be kept
-VEHICLE_PROPORTION = [0]
+VEHICLE_PROPORTION = [0, 0.2]
 
 tic = time.clock()
 
@@ -41,9 +42,9 @@ def run_aco(parameters):
     vehicles_kept = int(np.floor(parameters[5] * parameters[2]))
 
 
-    aco.initialize(problem_path='problem1/', initial_pheromone=i[0])
+    aco.initialize(problem_path='problem1/', initial_pheromone=parameters[0])
 
-    best = aco.do_iterations(parameters[1], parameters[2], vehicles_kept, parameters[3], parameters[4])
+    best = aco.do_iterations(parameters[1], parameters[2], vehicles_kept, parameters[3], parameters[4], parameters[0], parameters[5])
 
     toc = time.clock()
 
@@ -57,9 +58,10 @@ best_solutions = []
 count = 1
 for i in itertools.product(INITIAL_PHEROMONE, ITERATIONS, BATCH_SIZE, ENFORCE_DIVERSE_START, DIVERSE_VEHICLES, VEHICLE_PROPORTION):
     print(count)
+    print(BATCH_SIZE)
     count += 1
     best_solutions.append(run_aco(i))
-# aco.do_iterations(iterations=ITERATIONS,
+    #aco.do_iterations(iterations=ITERATIONS,
 #                   batch_size=BATCH_SIZE,
 #                   keep_v=KEEP_VEHICLES,
 #                   enforce_diverse_start=ENFORCE_DIVERSE_START,

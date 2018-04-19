@@ -259,7 +259,8 @@ def vehicle_color(v_index):
 
 
 
-def do_iterations(iterations, batch_size=100, keep_v=0, enforce_diverse_start=0, all_vehicles=False):
+def do_iterations(iterations, batch_size=100, keep_v=0, enforce_diverse_start=0, all_vehicles=False, initial_pheromone = 0.0001, vehicle_proportion = 0):
+    div_start = enforce_diverse_start
     if (batch_size > len(demand)):
         batch_size = len(demand) - 1
    #     print('reduced the batch size to', batch_size, ', the number of customers in this problem')
@@ -348,7 +349,10 @@ def do_iterations(iterations, batch_size=100, keep_v=0, enforce_diverse_start=0,
                        left='off', right='off', labelleft='off', labelbottom='off')
     axes[1].tick_params(axis='both', which='both', bottom='off', top='off',
                        left='off', right='off', labelleft='off', labelbottom='off')
-    plt.show()
+    #plt.show()
+    plt.savefig('Best_solutions_1_'+ str(iterations)+ '_'+str(initial_pheromone)+'_'+ str(batch_size)+'_'+ str(keep_v)+'_'+ str(div_start) + '_' + str(all_vehicles)+'.png')
+    plt.close()
+
 
     fig, axes = plt.subplots(1,2, sharex=True, sharey=True)
     bs = solutions # take the swapped solution here
@@ -374,7 +378,10 @@ def do_iterations(iterations, batch_size=100, keep_v=0, enforce_diverse_start=0,
     axes[0].set_title("colors according to vehicle type")
     axes[1].set_title("different color for each vehicle")
     plt.suptitle("Best solution, two visualizations")
-    plt.show()
+    #plt.show()
+    plt.savefig('Best_solutions_2_'+ str(iterations)+ '_'+str(initial_pheromone)+'_'+ str(batch_size)+'_'+ str(keep_v)+'_'+ str(div_start) + '_' + str(all_vehicles)+'.png')
+    plt.close()
+
 
 
 
@@ -389,6 +396,8 @@ def do_iterations(iterations, batch_size=100, keep_v=0, enforce_diverse_start=0,
     plt.ylim([50000, 250000])
     plt.xlabel('single runs')
     plt.ylabel('cost')
-    plt.show()
+    #plt.show()
 
+    plt.savefig('Mean_and_min_'+ str(iterations)+ '_'+str(initial_pheromone)+'_'+ str(batch_size)+'_'+ str(keep_v)+'_'+ str(div_start) + '_' + str(all_vehicles)+ '.png')
+    plt.close()
     return cost_after
